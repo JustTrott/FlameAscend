@@ -1,6 +1,7 @@
 CANVAS_WIDTH = 1280
 CANVAS_HEIGHT = 720
 BACKGROUND_COLOR = color(215)
+FREE_FALL_ACCELERATION = 0.6
 
 import os
 
@@ -11,15 +12,25 @@ class Game:
         self.windowHeight = windowHeight
         self.groundHeight = groundHeight
         self.mainCharacter = MainCharacter(0, 0, 70, 70)  # arbitrary values for now
-        self.fallAcceleration = 0.6  # arbitrary free fall acceleration
+        self.fallAcceleration = FREE_FALL_ACCELERATION
 
     def update(self):
         # future TODO: gravity as a different function to generalize for any object
         self.mainCharacter.move(self.groundHeight)
-        self.mainCharacter.applyGravity(self.fallAcceleration)
-        if self.mainCharacter.y + self.mainCharacter.bodyHeight > self.groundHeight:
-            self.mainCharacter.vy = 0
-            self.mainCharacter.y = self.groundHeight - self.mainCharacter.bodyHeight
+        self.applyGravity(self.mainCharacter, self.fallAcceleration)
+            
+    def applyGravity(self, entity, fallAcceleration):
+        entity.y += entity.vy
+        entity.x += entity.vx
+        currentGroundHeight = self.getGroundHeight(entity)
+        if entity.y + entity.h >= currentGroundHeight:
+            entity.vy = 0
+            entity.y = currentGroundHeight - self.mainCharacter.h
+        else:
+            entity.vy += fallAcceleration
+            
+    def getGroundHeight(self, entity):
+        return self.groundHeight
 
     def display(self):
         GROUND_STROKE_WIDTH = 0
@@ -30,26 +41,30 @@ class Game:
 
 
 class Creature:
-    def __init__(self, initialX, initialY, bodyWidth, bodyHeight):
+    def __init__(self, initialX, initialY, w, h):
         self.x = initialX
         self.y = initialY
-        self.bodyWidth = bodyWidth
-        self.bodyHeight = bodyHeight
+        self.w = w
+        self.h = h
         self.vx = 0
         self.vy = 1
 
     def display(self):
-        rect(self.x, self.y, self.bodyHeight, self.bodyWidth)
+        rect(self.x, self.y, self.w, self.h)
 
     def applyGravity(self, fallAcceleration):
         self.y += self.vy
         self.x += self.vx
         self.vy += fallAcceleration
+        
+
+class Platform:
+    def __init__(self, 
 
 
 class MainCharacter(Creature):
-    def __init__(self, initialX, initialY, bodyWidth, bodyHeight):
-        Creature.__init__(self, initialX, initialY, bodyWidth, bodyHeight)
+    def __init__(self, initialX, initialY, w, h):
+        Creature.__init__(self, initialX, initialY, w, h)
         self.keyHandler = {LEFT: False, RIGHT: False, UP: False}
 
     def jump(self):
@@ -62,7 +77,7 @@ class MainCharacter(Creature):
             dx += 7
         if self.keyHandler[LEFT]:
             dx -= 7
-        if self.keyHandler[UP] and (self.y + self.bodyHeight == groundHeight):
+        if self.keyHandler[UP] and (self.y + self.h == groundHeight):
             self.jump()
         self.vx = dx
 
