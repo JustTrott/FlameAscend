@@ -19,11 +19,17 @@ class Game:
     def update(self):
         # future TODO: gravity as a different function to generalize for any object
         self.mainCharacter.move(self.groundHeight)
+        self.applyMovement(self.mainCharacter)
         self.applyGravity(self.mainCharacter, self.fallAcceleration)
+        self.enemy.update()
+        for bullet in BULLETS:
+            self.applyMovement(bullet)
 
-    def applyGravity(self, entity, fallAcceleration):
+    def applyMovement(self, entity):
         entity.y += entity.velocityY
         entity.x += entity.velocityX
+
+    def applyGravity(self, entity, fallAcceleration):
         currentGroundHeight = self.getGroundHeight(entity)
         if entity.y + entity.h >= currentGroundHeight:
             entity.velocityY = 0
@@ -41,9 +47,11 @@ class Game:
         line(0, self.groundHeight, self.w, self.groundHeight)
         self.mainCharacter.display()
         self.enemy.display()
+        for bullet in BULLETS:
+            bullet.display()
 
 
-class Creature:
+class Entity:
     def __init__(self, initialX, initialY, w, h):
         self.x = initialX
         self.y = initialY
@@ -56,15 +64,10 @@ class Creature:
         fill(255, 255, 255)
         rect(self.x, self.y, self.w, self.h)
 
-    def applyGravity(self, fallAcceleration):
-        self.y += self.velocityY
-        self.x += self.velocityX
-        self.velocityY += fallAcceleration
 
-
-class MainCharacter(Creature):
+class MainCharacter(Entity):
     def __init__(self, initialX, initialY, w, h):
-        Creature.__init__(self, initialX, initialY, w, h)
+        Entity.__init__(self, initialX, initialY, w, h)
         self.keyHandler = {LEFT: False, RIGHT: False, UP: False}
 
     def jump(self):
@@ -82,28 +85,23 @@ class MainCharacter(Creature):
         self.velocityX = deltaX
 
 
-class Bullet:
+class Bullet(Entity):
     def __init__(self, initialX, initialY, w, h, speed, angle):
-        self.x = initialX
-        self.y = initialY
-        self.w = w
-        self.h = h
+        Entity.__init__(self, initialX, initialY, w, h)
         self.speed = speed
-        self.angle = angle  # Angle in radians
-
-    def move(self):
-        self.x += self.speed * cos(self.angle)
-        self.y += self.speed * sin(self.angle)
-
+        self.angle = angle
+        self.velocityX = self.speed * cos(self.angle)
+        self.velocityY = self.speed * sin(self.angle)
+        
     def display(self):
         fill(0, 0, 0)
         stroke(40)
         rect(self.x, self.y, self.w, self.h)
 
 
-class Enemy(Creature):
+class Enemy(Entity):
     def __init__(self, initialX, initialY, w, h):
-        Creature.__init__(self, initialX, initialY, w, h)
+        Entity.__init__(self, initialX, initialY, w, h)
         self.shootInterval = int(random(50, 150))
         self.shootTimer = 0
 
@@ -153,11 +151,7 @@ def draw():
     game.display()
     game.update()
 
-    for bullet in BULLETS:
-        bullet.display()
-        bullet.move()
 
-    game.enemy.update()
 
 
 def keyPressed():
