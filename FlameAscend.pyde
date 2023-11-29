@@ -8,17 +8,18 @@ import os
 
 
 class Game:
-    def __init__(self, w, h, groundHeight):
+    def __init__(self, w, h, groundY):
         self.w = w
         self.h = h
-        self.groundHeight = groundHeight
-        self.mainCharacter = MainCharacter(0, 0, 70, 70)  # arbitrary values for now
+        self.groundY = groundY
+        self.mainCharacter = MainCharacter(CANVAS_WIDTH / 2 - 35, 0, 70, 70)  # arbitrary values for now
         self.enemy = Enemy(640, 10, 70, 70)  # arbitrary values for now
         self.fallAcceleration = FREE_FALL_ACCELERATION
+        self.platforms = []
+        self.platforms.append(Platform(600, 500, 300, 20))
 
     def update(self):
-        # future TODO: gravity as a different function to generalize for any object
-        self.mainCharacter.move(self.groundHeight)
+        self.mainCharacter.move(self.getGroundY(self.mainCharacter))
         self.applyMovement(self.mainCharacter)
         self.applyGravity(self.mainCharacter, self.fallAcceleration)
         self.enemy.update()
@@ -30,25 +31,33 @@ class Game:
         entity.x += entity.velocityX
 
     def applyGravity(self, entity, fallAcceleration):
-        currentGroundHeight = self.getGroundHeight(entity)
-        if entity.y + entity.h >= currentGroundHeight:
+        currentgroundY = self.getGroundY(entity)
+        if entity.y + entity.h >= currentgroundY and entity.velocityY > 0:
             entity.velocityY = 0
-            entity.y = currentGroundHeight - self.mainCharacter.h
+            entity.y = currentgroundY - self.mainCharacter.h
         else:
             entity.velocityY += fallAcceleration
 
-    def getGroundHeight(self, entity):
-        return self.groundHeight
+    def getGroundY(self, entity):
+        minAvailableGroundY = self.groundY
+        for platform in self.platforms:
+            isEntityInPlatformX = (platform.x <= entity.x <= platform.x + platform.w) or (platform.x <= entity.x + entity.w <= platform.x + platform.w)
+            if isEntityInPlatformX and entity.y <= platform.y:
+                minAvailableGroundY = platform.y
+            
+        return minAvailableGroundY
 
     def display(self):
         GROUND_STROKE_WIDTH = 0
         background(BACKGROUND_COLOR)
         stroke(GROUND_STROKE_WIDTH)
-        line(0, self.groundHeight, self.w, self.groundHeight)
+        line(0, self.groundY, self.w, self.groundY)
         self.mainCharacter.display()
         self.enemy.display()
         for bullet in BULLETS:
             bullet.display()
+        for platform in self.platforms:
+            platform.display()
 
 
 class Entity:
@@ -65,6 +74,19 @@ class Entity:
         rect(self.x, self.y, self.w, self.h)
 
 
+class Platform:
+    def __init__(self, x, y, w, h):
+        self.x = x
+        self.y = y
+        self.w = w
+        self.h = h
+    
+    def display(self):
+        stroke(0)
+        fill(255)
+        rect(self.x, self.y, self.w, self.h)
+
+
 class MainCharacter(Entity):
     def __init__(self, initialX, initialY, w, h):
         Entity.__init__(self, initialX, initialY, w, h)
@@ -74,13 +96,13 @@ class MainCharacter(Entity):
         self.velocityY = -13  # arbitrary should be a constant
 
     # name could be better
-    def move(self, groundHeight):
+    def move(self, groundY):
         deltaX = 0
         if self.keyHandler[RIGHT]:
             deltaX += 7
         if self.keyHandler[LEFT]:
             deltaX -= 7
-        if self.keyHandler[UP] and (self.y + self.h == groundHeight):
+        if self.keyHandler[UP] and (self.y + self.h == groundY):
             self.jump()
         self.velocityX = deltaX
 
@@ -139,7 +161,7 @@ class Enemy(Entity):
             )  # arbitrary values for now
 
 
-game = Game(CANVAS_WIDTH, CANVAS_HEIGHT, 585)
+game = Game(CANVAS_WIDTH, CANVAS_HEIGHT, 600)
 
 
 def setup():
