@@ -8,9 +8,9 @@ import os
 
 
 class Game:
-    def __init__(self, windowWidth, windowHeight, groundHeight):
-        self.windowWidth = windowWidth
-        self.windowHeight = windowHeight
+    def __init__(self, w, h, groundHeight):
+        self.w = w
+        self.h = h
         self.groundHeight = groundHeight
         self.mainCharacter = MainCharacter(0, 0, 70, 70)  # arbitrary values for now
         self.enemy = Enemy(640, 10, 70, 70)  # arbitrary values for now
@@ -22,14 +22,14 @@ class Game:
         self.applyGravity(self.mainCharacter, self.fallAcceleration)
 
     def applyGravity(self, entity, fallAcceleration):
-        entity.y += entity.vy
-        entity.x += entity.vx
+        entity.y += entity.velocityY
+        entity.x += entity.velocityX
         currentGroundHeight = self.getGroundHeight(entity)
         if entity.y + entity.h >= currentGroundHeight:
-            entity.vy = 0
+            entity.velocityY = 0
             entity.y = currentGroundHeight - self.mainCharacter.h
         else:
-            entity.vy += fallAcceleration
+            entity.velocityY += fallAcceleration
 
     def getGroundHeight(self, entity):
         return self.groundHeight
@@ -38,7 +38,7 @@ class Game:
         GROUND_STROKE_WIDTH = 0
         background(BACKGROUND_COLOR)
         stroke(GROUND_STROKE_WIDTH)
-        line(0, self.groundHeight, self.windowWidth, self.groundHeight)
+        line(0, self.groundHeight, self.w, self.groundHeight)
         self.mainCharacter.display()
         self.enemy.display()
 
@@ -49,17 +49,17 @@ class Creature:
         self.y = initialY
         self.w = w
         self.h = h
-        self.vx = 0
-        self.vy = 1
+        self.velocityX = 0
+        self.velocityY = 0
 
     def display(self):
         fill(255, 255, 255)
         rect(self.x, self.y, self.w, self.h)
 
     def applyGravity(self, fallAcceleration):
-        self.y += self.vy
-        self.x += self.vx
-        self.vy += fallAcceleration
+        self.y += self.velocityY
+        self.x += self.velocityX
+        self.velocityY += fallAcceleration
 
 
 class MainCharacter(Creature):
@@ -68,26 +68,26 @@ class MainCharacter(Creature):
         self.keyHandler = {LEFT: False, RIGHT: False, UP: False}
 
     def jump(self):
-        self.vy = -13  # arbitrary should be a constant
+        self.velocityY = -13  # arbitrary should be a constant
 
     # name could be better
     def move(self, groundHeight):
-        dx = 0
+        deltaX = 0
         if self.keyHandler[RIGHT]:
-            dx += 7
+            deltaX += 7
         if self.keyHandler[LEFT]:
-            dx -= 7
+            deltaX -= 7
         if self.keyHandler[UP] and (self.y + self.h == groundHeight):
             self.jump()
-        self.vx = dx
+        self.velocityX = deltaX
 
 
 class Bullet:
-    def __init__(self, initialX, initialY, bodyWidth, bodyHeight, speed, angle):
+    def __init__(self, initialX, initialY, w, h, speed, angle):
         self.x = initialX
         self.y = initialY
-        self.bodyWidth = bodyWidth
-        self.bodyHeight = bodyHeight
+        self.w = w
+        self.h = h
         self.speed = speed
         self.angle = angle  # Angle in radians
 
@@ -98,12 +98,12 @@ class Bullet:
     def display(self):
         fill(0, 0, 0)
         stroke(40)
-        rect(self.x, self.y, self.bodyWidth, self.bodyHeight)
+        rect(self.x, self.y, self.w, self.h)
 
 
 class Enemy(Creature):
-    def __init__(self, initialX, initialY, bodyWidth, bodyHeight):
-        Creature.__init__(self, initialX, initialY, bodyWidth, bodyHeight)
+    def __init__(self, initialX, initialY, w, h):
+        Creature.__init__(self, initialX, initialY, w, h)
         self.shootInterval = int(random(50, 150))
         self.shootTimer = 0
 
@@ -119,20 +119,20 @@ class Enemy(Creature):
         num_bullets = 1
         verticaDistanceBetweenbullets = 1
 
-        targetX = game.mainCharacter.x + game.mainCharacter.bodyWidth / 2
+        targetX = game.mainCharacter.x + game.mainCharacter.w / 2
 
         for i in range(num_bullets):
             yOffset = i * verticaDistanceBetweenbullets
             scalingFactor = 0.65
             angle = atan2(
                 scalingFactor
-                * (CANVAS_HEIGHT - (self.y - (self.bodyWidth // 2) + yOffset)),
+                * (CANVAS_HEIGHT - (self.y - (self.w // 2) + yOffset)),
                 targetX - self.x,
             )
             BULLETS.append(
                 Bullet(
-                    self.x + self.bodyWidth // 2,
-                    self.y + self.bodyHeight // 2,
+                    self.x + self.w // 2,
+                    self.y + self.h // 2,
                     20,
                     20,
                     10,
@@ -146,7 +146,7 @@ game = Game(CANVAS_WIDTH, CANVAS_HEIGHT, 585)
 
 def setup():
     frameRate(60)
-    size(game.windowWidth, game.windowHeight)
+    size(game.w, game.h)
 
 
 def draw():
