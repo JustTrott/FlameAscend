@@ -94,29 +94,29 @@ class Bullet:
 class Enemy(Creature):
     def __init__(self, initialX, initialY, bodyWidth, bodyHeight):
         Creature.__init__(self, initialX, initialY, bodyWidth, bodyHeight)
-        self.shoot_interval = int(random(50, 150))
-        self.shoot_timer = 0
+        self.shootInterval = int(random(50, 150))
+        self.shootTimer = 0
         
     def update(self):
-        self.shoot_timer += 1
+        self.shootTimer += 1
 
-        if self.shoot_timer >= self.shoot_interval:
+        if self.shootTimer >= self.shootInterval:
             self.shoot()
-            self.shoot_timer = 0
-            self.shoot_interval = int(random(50, 150))
+            self.shootTimer = 0
+            self.shootInterval = int(random(50, 150))
             
     def shoot(self):
         num_bullets = 1
         verticaDistanceBetweenbullets = 1
         
         
-        target_x = game.mainCharacter.x+ game.mainCharacter.bodyWidth / 2
+        targetX = game.mainCharacter.x+ game.mainCharacter.bodyWidth / 2
         
 
         for i in range(num_bullets):
-            y_offset = i * verticaDistanceBetweenbullets
-            scaling_factor= 0.65
-            angle = atan2(scaling_factor*(CANVAS_HEIGHT - (self.y - (self.bodyWidth // 2) + y_offset)), target_x - self.x)
+            yOffset = i * verticaDistanceBetweenbullets
+            scalingFactor= 0.65
+            angle = atan2(scalingFactor*(CANVAS_HEIGHT - (self.y - (self.bodyWidth // 2) + yOffset)), targetX - self.x)
             BULLETS.append(Bullet(self.x+ self.bodyWidth//2, self.y +self.bodyHeight // 2, 20, 20, 10, angle)) #arbitrary values for now
 
 
