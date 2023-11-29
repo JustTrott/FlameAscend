@@ -16,33 +16,35 @@ class Game:
         self.enemy = Enemy(640, 10, 70, 70)  # arbitrary values for now
         self.fallAcceleration = FREE_FALL_ACCELERATION
         self.platforms = []
-        self.platforms.append(Platform(600, 500, 300, 20))
+        self.platforms.append(Platform(600, 502, 300, 20))
 
     def update(self):
         self.mainCharacter.move(self.getGroundY(self.mainCharacter))
-        self.applyMovement(self.mainCharacter)
-        self.applyGravity(self.mainCharacter, self.fallAcceleration)
+        self.applyMovement(self.mainCharacter, True, self.getGroundY(self.mainCharacter))
+        self.applyGravity(self.mainCharacter, self.fallAcceleration, self.mainCharacter.keyHandler[DOWN])
         self.enemy.update()
         for bullet in BULLETS:
             self.applyMovement(bullet)
 
-    def applyMovement(self, entity):
-        entity.y += entity.velocityY
+    def applyMovement(self, entity, isFallCapped = False, fallCap = 0):
         entity.x += entity.velocityX
-
-    def applyGravity(self, entity, fallAcceleration):
-        currentgroundY = self.getGroundY(entity)
-        if entity.y + entity.h >= currentgroundY and entity.velocityY > 0:
-            entity.velocityY = 0
-            entity.y = currentgroundY - self.mainCharacter.h
+        if entity.y + entity.h != fallCap and isFallCapped and entity.velocityY > 0:
+            entity.y = min(entity.y + entity.h + entity.velocityY, fallCap) - entity.h
         else:
+            entity.y += entity.velocityY
+                
+    def applyGravity(self, entity, fallAcceleration, isSkippingPlatform = False):
+        currentGroundY = self.getGroundY(entity) if not isSkippingPlatform else self.groundY
+        if entity.y + entity.h != currentGroundY:
             entity.velocityY += fallAcceleration
-
+        else:
+            entity.velocityY = 0
+        
     def getGroundY(self, entity):
         minAvailableGroundY = self.groundY
         for platform in self.platforms:
             isEntityInPlatformX = (platform.x <= entity.x <= platform.x + platform.w) or (platform.x <= entity.x + entity.w <= platform.x + platform.w)
-            if isEntityInPlatformX and entity.y <= platform.y:
+            if isEntityInPlatformX and entity.y + entity.h <= platform.y:
                 minAvailableGroundY = platform.y
             
         return minAvailableGroundY
@@ -90,7 +92,7 @@ class Platform:
 class MainCharacter(Entity):
     def __init__(self, initialX, initialY, w, h):
         Entity.__init__(self, initialX, initialY, w, h)
-        self.keyHandler = {LEFT: False, RIGHT: False, UP: False}
+        self.keyHandler = {LEFT: False, RIGHT: False, UP: False, DOWN: False}
 
     def jump(self):
         self.velocityY = -13  # arbitrary should be a constant
@@ -151,8 +153,8 @@ class Enemy(Entity):
             )
             BULLETS.append(
                 Bullet(
-                    self.x + self.w // 2,
-                    self.y + self.h // 2,
+                    self.x + self.w // 2 - 10,
+                    self.y + self.h,
                     20,
                     20,
                     10,
@@ -184,6 +186,8 @@ def keyPressed():
             game.mainCharacter.keyHandler[RIGHT] = True
         if keyCode == LEFT:
             game.mainCharacter.keyHandler[LEFT] = True
+        if keyCode == DOWN:
+            game.mainCharacter.keyHandler[DOWN] = True
 
 
 def keyReleased():
@@ -194,3 +198,5 @@ def keyReleased():
             game.mainCharacter.keyHandler[RIGHT] = False
         if keyCode == LEFT:
             game.mainCharacter.keyHandler[LEFT] = False
+        if keyCode == DOWN:
+            game.mainCharacter.keyHandler[DOWN] = False
