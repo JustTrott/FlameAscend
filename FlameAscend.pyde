@@ -2,7 +2,10 @@ CANVAS_WIDTH = 1280
 CANVAS_HEIGHT = 720
 BACKGROUND_COLOR = color(215)
 FREE_FALL_ACCELERATION = 0.6
+MAX_FALL_SPEED = 12
+MC_JUMP_SPEED = 15
 BULLETS = []
+
 
 import os
 
@@ -45,15 +48,17 @@ class Game:
         self.w = w
         self.h = h
         self.groundY = groundY
-        self.mainCharacter = MainCharacter(CANVAS_WIDTH / 2 - 35, 0, 70, 70)  # arbitrary values for now
+        self.mainCharacter = MainCharacter(CANVAS_WIDTH / 2 - 35, 0, 40, 40)  # arbitrary values for now
         self.enemy = Enemy(640, 10, 70, 70)  # arbitrary values for now
         self.fallAcceleration = FREE_FALL_ACCELERATION
-        self.platforms = []
-        self.platforms.append(Platform(600, 502, 300, 20))
-
+        self.platforms = [Platform(40 + (i * 150), 500, 150, 15) for i in range(8)]
+        self.platforms.append(JumpPlatform(50, 313, 150, 15))
+    
     def update(self):
-        self.mainCharacter.move(self.getGroundY(self.mainCharacter))
-        self.applyMovement(self.mainCharacter, True, self.getGroundY(self.mainCharacter))
+        highestPlatform = self.getHighestPlatform(self.mainCharacter)
+        currentGroundY = self.groundY if highestPlatform is None else highestPlatform.y
+        self.mainCharacter.move(currentGroundY)
+        self.applyMovement(self.mainCharacter, True, currentGroundY)
         if not self.mainCharacter.flyMode:
             self.applyGravity(self.mainCharacter, self.fallAcceleration, self.mainCharacter.keyHandler[DOWN])
         self.enemy.update()
@@ -66,7 +71,6 @@ class Game:
         if self.mainCharacter.isCollidingGround():
             print("Collision of " + str(self.mainCharacter) + " and ground")
 
-
     def isCollidingRectangleCircle(self, rectangleX, rectangleY, w, h, circleX, circleY, radius):
         if utils.isLineSegmentIntersectCircle(rectangleX, rectangleY, rectangleX + w, rectangleY, circleX, circleY, radius):
             return True
@@ -78,6 +82,7 @@ class Game:
             return True
         return False
 
+
     def applyMovement(self, entity, isFallCapped = False, fallCap = 0):
         entity.x += entity.velocityX
         if entity.y + entity.h != fallCap and isFallCapped and entity.velocityY > 0:
@@ -86,20 +91,32 @@ class Game:
             entity.y += entity.velocityY
                 
     def applyGravity(self, entity, fallAcceleration, isSkippingPlatform = False):
-        currentGroundY = self.getGroundY(entity) if not isSkippingPlatform else self.groundY
-        if entity.y + entity.h != currentGroundY:
-            entity.velocityY += fallAcceleration
+        highestPlatform = self.getHighestPlatform(entity)
+        
+        if isSkippingPlatform:
+            highestPlatform = None
+        
+        if highestPlatform is not None and entity.y + entity.h == highestPlatform.y:
+            entity.velocityY = 0
+            if isinstance(highestPlatform, JumpPlatform):
+                highestPlatform.onCollision(self.mainCharacter)
+            return
+        if highestPlatform is None or entity.y + entity.h != highestPlatform.y:
+            if entity.velocityY < MAX_FALL_SPEED:
+                entity.velocityY += fallAcceleration
         else:
             entity.velocityY = 0
         
-    def getGroundY(self, entity):
+    def getHighestPlatform(self, entity):
         minAvailableGroundY = self.groundY
+        highestPlatform = None
         for platform in self.platforms:
             isEntityInPlatformX = (platform.x <= entity.x <= platform.x + platform.w) or (platform.x <= entity.x + entity.w <= platform.x + platform.w)
-            if isEntityInPlatformX and entity.y + entity.h <= platform.y:
+            if isEntityInPlatformX and platform.y < minAvailableGroundY and entity.y + entity.h <= platform.y:
                 minAvailableGroundY = platform.y
+                highestPlatform = platform
             
-        return minAvailableGroundY
+        return highestPlatform
 
     def display(self):
         GROUND_STROKE_WIDTH = 0
@@ -140,11 +157,21 @@ class Platform:
         self.y = y
         self.w = w
         self.h = h
+        self.color = color(255)
     
     def display(self):
         stroke(0)
-        fill(255)
+        fill(self.color)
         rect(self.x, self.y, self.w, self.h)
+
+
+class JumpPlatform(Platform):
+    def __init__(self, x, y, w, h):
+        Platform.__init__(self, x, y, w, h)
+        self.color = color(100, 255, 100)
+    
+    def onCollision(self, entity):
+        entity.jump()
 
 
 class MainCharacter(Entity):
@@ -154,7 +181,7 @@ class MainCharacter(Entity):
         self.flyMode = False
 
     def jump(self):
-        self.velocityY = -13  # arbitrary should be a constant
+        self.velocityY = -MC_JUMP_SPEED
 
     # name could be better
     def move(self, groundY):
@@ -239,7 +266,7 @@ class Enemy(Entity):
             )  # arbitrary values for now
 
 
-game = Game(CANVAS_WIDTH, CANVAS_HEIGHT, 600)
+game = Game(CANVAS_WIDTH, CANVAS_HEIGHT, 720)
 
 
 def setup():
