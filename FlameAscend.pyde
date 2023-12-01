@@ -5,7 +5,8 @@ FREE_FALL_ACCELERATION = 0.6
 MAX_FALL_SPEED = 12
 MC_JUMP_SPEED = 15
 BULLETS = []
-
+PLATFORM_SEEDS = ["GNJGGJNG", "GJGJJGJG"]
+START_SEED = "NNNNNNNJ"
 
 import os
 
@@ -48,11 +49,25 @@ class Game:
         self.w = w
         self.h = h
         self.groundY = groundY
-        self.mainCharacter = MainCharacter(CANVAS_WIDTH / 2 - 35, 0, 40, 40)  # arbitrary values for now
+        self.mainCharacter = MainCharacter(CANVAS_WIDTH / 2 - 35, 500, 40, 40)  # arbitrary values for now
         self.enemy = Enemy(640, 10, 70, 70)  # arbitrary values for now
         self.fallAcceleration = FREE_FALL_ACCELERATION
-        self.platforms = [Platform(40 + (i * 150), 500, 150, 15) for i in range(8)]
-        self.platforms.append(JumpPlatform(50, 313, 150, 15))
+        self.topPlatformY = 600
+        self.platformLayers = []
+        self.generatePlatforms()
+    
+    def display(self):
+        GROUND_STROKE_WIDTH = 0
+        background(BACKGROUND_COLOR)
+        stroke(GROUND_STROKE_WIDTH)
+        line(0, self.groundY, self.w, self.groundY)
+        self.mainCharacter.display()
+        self.enemy.display()
+        for bullet in BULLETS:
+            bullet.display()
+        for platforms in self.platformLayers:
+            for platform in platforms:
+                platform.display()
     
     def update(self):
         highestPlatform = self.getHighestPlatform(self.mainCharacter)
@@ -71,18 +86,18 @@ class Game:
         if self.mainCharacter.isCollidingGround():
             print("Collision of " + str(self.mainCharacter) + " and ground")
 
-    def isCollidingRectangleCircle(self, rectangleX, rectangleY, w, h, circleX, circleY, radius):
-        if utils.isLineSegmentIntersectCircle(rectangleX, rectangleY, rectangleX + w, rectangleY, circleX, circleY, radius):
-            return True
-        if utils.isLineSegmentIntersectCircle(rectangleX, rectangleY, rectangleX, rectangleY + h, circleX, circleY, radius):
-            return True
-        if utils.isLineSegmentIntersectCircle(rectangleX + w, rectangleY, rectangleX + w, rectangleY + h, circleX, circleY, radius):
-            return True
-        if utils.isLineSegmentIntersectCircle(rectangleX, rectangleY + h, rectangleX + w, rectangleY + h, circleX, circleY, radius):
-            return True
-        return False
-
-
+    def getHighestPlatform(self, entity):
+            minAvailableGroundY = self.groundY
+            highestPlatform = None
+            for platforms in self.platformLayers:
+                for platform in platforms:
+                    isEntityInPlatformX = (platform.x <= entity.x <= platform.x + platform.w) or (platform.x <= entity.x + entity.w <= platform.x + platform.w)
+                    if isEntityInPlatformX and platform.y < minAvailableGroundY and entity.y + entity.h <= platform.y:
+                        minAvailableGroundY = platform.y
+                        highestPlatform = platform
+                
+            return highestPlatform
+    
     def applyMovement(self, entity, isFallCapped = False, fallCap = 0):
         entity.x += entity.velocityX
         if entity.y + entity.h != fallCap and isFallCapped and entity.velocityY > 0:
@@ -107,30 +122,38 @@ class Game:
         else:
             entity.velocityY = 0
         
-    def getHighestPlatform(self, entity):
-        minAvailableGroundY = self.groundY
-        highestPlatform = None
-        for platform in self.platforms:
-            isEntityInPlatformX = (platform.x <= entity.x <= platform.x + platform.w) or (platform.x <= entity.x + entity.w <= platform.x + platform.w)
-            if isEntityInPlatformX and platform.y < minAvailableGroundY and entity.y + entity.h <= platform.y:
-                minAvailableGroundY = platform.y
-                highestPlatform = platform
-            
-        return highestPlatform
-
-    def display(self):
-        GROUND_STROKE_WIDTH = 0
-        background(BACKGROUND_COLOR)
-        stroke(GROUND_STROKE_WIDTH)
-        line(0, self.groundY, self.w, self.groundY)
-        self.mainCharacter.display()
-        self.enemy.display()
-        for bullet in BULLETS:
-            bullet.display()
-        for platform in self.platforms:
-            platform.display()
-
-
+    def isCollidingRectangleCircle(self, rectangleX, rectangleY, w, h, circleX, circleY, radius):
+        if utils.isLineSegmentIntersectCircle(rectangleX, rectangleY, rectangleX + w, rectangleY, circleX, circleY, radius):
+            return True
+        if utils.isLineSegmentIntersectCircle(rectangleX, rectangleY, rectangleX, rectangleY + h, circleX, circleY, radius):
+            return True
+        if utils.isLineSegmentIntersectCircle(rectangleX + w, rectangleY, rectangleX + w, rectangleY + h, circleX, circleY, radius):
+            return True
+        if utils.isLineSegmentIntersectCircle(rectangleX, rectangleY + h, rectangleX + w, rectangleY + h, circleX, circleY, radius):
+            return True
+        return False
+    
+    def generatePlatforms(self):
+        self.platformLayers.append(self.generatePlatformLayer(START_SEED, self.topPlatformY))
+        self.topPlatformY -= 185
+        self.platformLayers.append(self.generatePlatformLayer(PLATFORM_SEEDS[0], self.topPlatformY))
+        self.topPlatformY -= 185
+        self.platformLayers.append(self.generatePlatformLayer(PLATFORM_SEEDS[1], self.topPlatformY))
+        self.topPlatformY -= 185
+    
+    def generatePlatformLayer(self, seed, y):
+        platforms = []
+        print(seed, y)
+        for i, platform_type in enumerate(seed):
+            if platform_type == 'G':
+                continue
+            elif platform_type == 'N':
+                platforms.append(Platform(40 + (i * 150), y, 150, 15))
+            else:
+                platforms.append(JumpPlatform(40 + (i * 150), y, 150, 15))
+        return platforms
+    
+    
 class Entity:
     def __init__(self, initialX, initialY, w, h):
         self.x = initialX
