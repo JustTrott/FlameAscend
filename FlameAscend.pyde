@@ -8,6 +8,7 @@ BULLETS = []
 PLATFORM_SEEDS = ["GNJGGJNG", "GJGJJGJG"]
 START_SEED = "NNNNNNNJ"
 
+
 import os
 
 
@@ -70,33 +71,42 @@ class Game:
                 platform.display()
     
     def update(self):
-        highestPlatform = self.getHighestPlatform(self.mainCharacter)
-        currentGroundY = self.groundY if highestPlatform is None else highestPlatform.y
-        self.mainCharacter.move(currentGroundY)
-        self.applyMovement(self.mainCharacter, True, currentGroundY)
-        if not self.mainCharacter.flyMode:
-            self.applyGravity(self.mainCharacter, self.fallAcceleration, self.mainCharacter.keyHandler[DOWN])
+        currentGroundY = self.getHighestPlatformY(self.mainCharacter)
+        mc = self.mainCharacter
+        mc.move(currentGroundY)
+        self.applyMovement(mc, True, currentGroundY)
+        if not mc.flyMode:
+            if self.isOnJumpPlatform(mc):
+                mc.jump()
+            self.applyGravity(mc, self.fallAcceleration)
+        if mc.keyHandler[DOWN] and mc.y + mc.h == currentGroundY:
+            mc.velocityY += self.fallAcceleration
         self.enemy.update()
         for bullet in BULLETS:
             self.applyMovement(bullet)
-            if self.isCollidingRectangleCircle(self.mainCharacter.x, self.mainCharacter.y, self.mainCharacter.w, self.mainCharacter.h, bullet.x, bullet.y, bullet.w / 2):
-                
-                print("Collision of " + str(self.mainCharacter) + " and " + str(bullet))
+            if self.isCollidingRectangleCircle(mc.x, mc.y, mc.w, mc.h, bullet.x, bullet.y, bullet.w / 2):
+                print("Collision of " + str(mc) + " and " + str(bullet))
                             
         if self.mainCharacter.isCollidingGround():
             print("Collision of " + str(self.mainCharacter) + " and ground")
 
-    def getHighestPlatform(self, entity):
-            minAvailableGroundY = self.groundY
-            highestPlatform = None
-            for platforms in self.platformLayers:
-                for platform in platforms:
-                    isEntityInPlatformX = (platform.x <= entity.x <= platform.x + platform.w) or (platform.x <= entity.x + entity.w <= platform.x + platform.w)
-                    if isEntityInPlatformX and platform.y < minAvailableGroundY and entity.y + entity.h <= platform.y:
-                        minAvailableGroundY = platform.y
-                        highestPlatform = platform
-                
-            return highestPlatform
+    def getHighestPlatformY(self, entity):
+        minPlatformY = self.groundY
+        for platforms in self.platformLayers:
+            for platform in platforms:
+                isEntityInPlatformX = (platform.x <= entity.x <= platform.x + platform.w) or (platform.x <= entity.x + entity.w <= platform.x + platform.w)
+                if isEntityInPlatformX and platform.y < minPlatformY and entity.y + entity.h <= platform.y:
+                    minPlatformY = platform.y                        
+        return minPlatformY
+    
+    def isOnJumpPlatform(self, entity):
+        for platforms in self.platformLayers:
+            for platform in platforms:
+                isEntityInPlatformX = (platform.x <= entity.x <= platform.x + platform.w) or (platform.x <= entity.x + entity.w <= platform.x + platform.w)
+                if isinstance(platform, JumpPlatform) and entity.y + entity.h == platform.y and isEntityInPlatformX:
+                    print("true")
+                    return True
+        return False
     
     def applyMovement(self, entity, isFallCapped = False, fallCap = 0):
         entity.x += entity.velocityX
@@ -106,21 +116,14 @@ class Game:
             entity.y += entity.velocityY
                 
     def applyGravity(self, entity, fallAcceleration, isSkippingPlatform = False):
-        highestPlatform = self.getHighestPlatform(entity)
+        highestPlatformY = self.getHighestPlatformY(entity)
         
-        if isSkippingPlatform:
-            highestPlatform = None
-        
-        if highestPlatform is not None and entity.y + entity.h == highestPlatform.y:
-            entity.velocityY = 0
-            if isinstance(highestPlatform, JumpPlatform):
-                highestPlatform.onCollision(self.mainCharacter)
-            return
-        if highestPlatform is None or entity.y + entity.h != highestPlatform.y:
+        if entity.y + entity.h != highestPlatformY:
             if entity.velocityY < MAX_FALL_SPEED:
                 entity.velocityY += fallAcceleration
-        else:
+        elif entity.velocityY > 0:
             entity.velocityY = 0
+        return
         
     def isCollidingRectangleCircle(self, rectangleX, rectangleY, w, h, circleX, circleY, radius):
         if utils.isLineSegmentIntersectCircle(rectangleX, rectangleY, rectangleX + w, rectangleY, circleX, circleY, radius):
@@ -143,7 +146,6 @@ class Game:
     
     def generatePlatformLayer(self, seed, y):
         platforms = []
-        print(seed, y)
         for i, platform_type in enumerate(seed):
             if platform_type == 'G':
                 continue
@@ -225,8 +227,9 @@ class MainCharacter(Entity):
             deltaX += 7
         if self.keyHandler[LEFT]:
             deltaX -= 7
-        if self.keyHandler[UP] and (self.y + self.h == groundY):
-            self.jump()
+        # manual jumping is deprecated 
+        # if self.keyHandler[UP] and (self.y + self.h == groundY):
+            # self.jump()
         self.velocityX = deltaX
 
     def isCollidingGround(self):
