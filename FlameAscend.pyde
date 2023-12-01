@@ -1,12 +1,14 @@
 CANVAS_WIDTH = 1280
-CANVAS_HEIGHT = 720
+CANVAS_HEIGHT = 932
 BACKGROUND_COLOR = color(215)
 FREE_FALL_ACCELERATION = 0.6
 MAX_FALL_SPEED = 12
-MC_JUMP_SPEED = 15
+MC_JUMP_SPEED = 13.5
 BULLETS = []
-PLATFORM_SEEDS = ["GNJGGJNG", "GJGJJGJG"]
-START_SEED = "NNNNNNNJ"
+PLATFORM_SEEDS = ["GNJGNJJNGJNG", "NJGGJNNJGGJN", "JGNJNGGNJNGJ", "GJGJGJJGJGJG", "GNNJGJJGJNNG", "JGGNJNNJNGGJ", "JGJNJGGJNJGJ"]
+LAYER_HEIGHT = 150
+PLATFORM_WIDTH = 80
+START_SEED = "NNNNNNNNNNNJ"
 
 
 import os
@@ -23,20 +25,16 @@ class Utils:
         # we need to solve a quadratic at^2 + bx + c = 0 
         
         discriminant = b ** 2 - 4 * a * c
-        # print(discriminant)
-        
+
         if discriminant < 0:
             return False
         elif discriminant == 0:
-            # print(a, b)
             t = -b / (2 * a)
-            # print(t)
             if 0 <= t <= 1:
                 return True
         else:
             t1 = (-b + (discriminant) ** (0.5)) / (2 * a)
             t2 = (-b - (discriminant) ** (0.5)) / (2 * a)
-            # print(t1, t2)
             if (0 <= t1 <= 1) or (0 <= t2 <= 1):
                 return True
         return False
@@ -50,12 +48,13 @@ class Game:
         self.w = w
         self.h = h
         self.groundY = groundY
-        self.mainCharacter = MainCharacter(CANVAS_WIDTH / 2 - 35, 500, 40, 40)  # arbitrary values for now
-        self.enemy = Enemy(640, 10, 70, 70)  # arbitrary values for now
         self.fallAcceleration = FREE_FALL_ACCELERATION
-        self.topPlatformY = 600
+        self.topPlatformY = groundY - LAYER_HEIGHT
         self.platformLayers = []
         self.generatePlatforms()
+        self.mainCharacter = MainCharacter(CANVAS_WIDTH / 2 - 20, groundY - LAYER_HEIGHT - PLATFORM_WIDTH * 0.4, PLATFORM_WIDTH * 0.4, PLATFORM_WIDTH * 0.4)  # arbitrary values for now
+        self.enemy = Enemy(640, 10, 70, 70)  # arbitrary values for now
+        
     
     def display(self):
         GROUND_STROKE_WIDTH = 0
@@ -79,7 +78,7 @@ class Game:
             if self.isOnJumpPlatform(mc):
                 mc.jump()
             self.applyGravity(mc, self.fallAcceleration)
-        if mc.keyHandler[DOWN] and mc.y + mc.h == currentGroundY:
+        if mc.keyHandler[DOWN] and mc.y + mc.h == currentGroundY and not self.isOnLowestLayer(mc) and mc.velocityY == 0:
             mc.velocityY += self.fallAcceleration
         self.enemy.update()
         for bullet in BULLETS:
@@ -104,9 +103,11 @@ class Game:
             for platform in platforms:
                 isEntityInPlatformX = (platform.x <= entity.x <= platform.x + platform.w) or (platform.x <= entity.x + entity.w <= platform.x + platform.w)
                 if isinstance(platform, JumpPlatform) and entity.y + entity.h == platform.y and isEntityInPlatformX:
-                    print("true")
                     return True
         return False
+    
+    def isOnLowestLayer(self, entity):
+        return entity.y + entity.h == self.platformLayers[0][0].y
     
     def applyMovement(self, entity, isFallCapped = False, fallCap = 0):
         entity.x += entity.velocityX
@@ -138,21 +139,23 @@ class Game:
     
     def generatePlatforms(self):
         self.platformLayers.append(self.generatePlatformLayer(START_SEED, self.topPlatformY))
-        self.topPlatformY -= 185
-        self.platformLayers.append(self.generatePlatformLayer(PLATFORM_SEEDS[0], self.topPlatformY))
-        self.topPlatformY -= 185
-        self.platformLayers.append(self.generatePlatformLayer(PLATFORM_SEEDS[1], self.topPlatformY))
-        self.topPlatformY -= 185
+        self.topPlatformY -= LAYER_HEIGHT
+        for i in range(3):
+            random_seed = PLATFORM_SEEDS[int(random(0, len(PLATFORM_SEEDS)))]
+            self.platformLayers.append(self.generatePlatformLayer(random_seed, self.topPlatformY))
+            self.topPlatformY -= LAYER_HEIGHT
     
     def generatePlatformLayer(self, seed, y):
         platforms = []
+        PLATFORM_HEIGHT = 15
+        print(seed)
         for i, platform_type in enumerate(seed):
             if platform_type == 'G':
                 continue
             elif platform_type == 'N':
-                platforms.append(Platform(40 + (i * 150), y, 150, 15))
+                platforms.append(Platform(2*PLATFORM_WIDTH + (i * PLATFORM_WIDTH), y, PLATFORM_WIDTH, PLATFORM_HEIGHT))
             else:
-                platforms.append(JumpPlatform(40 + (i * 150), y, 150, 15))
+                platforms.append(JumpPlatform(2*PLATFORM_WIDTH + (i * PLATFORM_WIDTH), y, PLATFORM_WIDTH, PLATFORM_HEIGHT))
         return platforms
     
     
@@ -224,9 +227,9 @@ class MainCharacter(Entity):
                 self.y += 5
             return
         if self.keyHandler[RIGHT]:
-            deltaX += 7
+            deltaX += 6
         if self.keyHandler[LEFT]:
-            deltaX -= 7
+            deltaX -= 6
         # manual jumping is deprecated 
         # if self.keyHandler[UP] and (self.y + self.h == groundY):
             # self.jump()
@@ -292,7 +295,7 @@ class Enemy(Entity):
             )  # arbitrary values for now
 
 
-game = Game(CANVAS_WIDTH, CANVAS_HEIGHT, 720)
+game = Game(CANVAS_WIDTH, CANVAS_HEIGHT, CANVAS_HEIGHT)
 
 
 def setup():
