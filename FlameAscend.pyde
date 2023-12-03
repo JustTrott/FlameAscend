@@ -52,39 +52,53 @@ class Game:
         self.topPlatformY = groundY - LAYER_HEIGHT
         self.platformLayers = []
         self.generatePlatforms()
-        self.mainCharacter = MainCharacter(CANVAS_WIDTH / 2 - 20, groundY - LAYER_HEIGHT - PLATFORM_WIDTH * 0.4, PLATFORM_WIDTH * 0.4, PLATFORM_WIDTH * 0.4)  # arbitrary values for now
+        self.mainCharacter = MainCharacter(180, groundY - LAYER_HEIGHT - PLATFORM_WIDTH * 0.6, PLATFORM_WIDTH * 0.6, PLATFORM_WIDTH * 0.6)  # arbitrary values for now
         self.enemy = Enemy(640, 10, 70, 70)  # arbitrary values for now
-        
+        self.bomb = Bomb(self.platformLayers[0][5], 25, 25)
+        self.platformLayers[0][-2] = PressurePlatform(self.platformLayers[0][-2].x, self.platformLayers[0][-2].y, self.platformLayers[0][-2].w, self.platformLayers[0][-2].h)
     
     def display(self):
         GROUND_STROKE_WIDTH = 0
         background(BACKGROUND_COLOR)
         stroke(GROUND_STROKE_WIDTH)
         line(0, self.groundY, self.w, self.groundY)
+        for platforms in self.platformLayers:
+            for platform in platforms:
+                platform.display()
+        self.bomb.display()
         self.mainCharacter.display()
         self.enemy.display()
         for bullet in BULLETS:
             bullet.display()
-        for platforms in self.platformLayers:
-            for platform in platforms:
-                platform.display()
     
     def update(self):
-        currentGroundY = self.getHighestPlatformY(self.mainCharacter)
+        # future rising lava
+        # self.groundY -= 1
         mc = self.mainCharacter
+        currentGroundY = self.getHighestPlatformY(mc)
+        currentPlatforms = self.getCurrentPlatforms(mc)
+        if self.bomb.owner == mc:
+            for platform in self.getCurrentPlatforms(mc):
+                if isinstance(platform, PressurePlatform):
+                    self.bomb.owner = platform
+                    platform.isPressed = True
+                    break
+        if self.bomb.owner != mc and not isinstance(self.bomb.owner, PressurePlatform) and self.isCollidingRectangleCircle(mc, self.bomb):
+            self.bomb.owner = mc 
         mc.applyKeyPresses()
         self.applyMovement(mc, True, currentGroundY)
         if not mc.flyMode:
-            jumpPlatform = self.isOnJumpPlatform(mc)
-            if jumpPlatform is not None:
-                jumpPlatform.onCollision(mc)
+            for platform in currentPlatforms:
+                if isinstance(platform, JumpPlatform):
+                    platform.onCollision(mc)
+                    break
             self.applyGravity(mc, self.fallAcceleration)
         if mc.keyHandler[DOWN] and mc.y + mc.h == currentGroundY and not self.isOnLowestLayer(mc) and mc.velocityY == 0:
             mc.velocityY += self.fallAcceleration
         self.enemy.update()
         for bullet in BULLETS:
             self.applyMovement(bullet)
-            if self.isCollidingRectangleCircle(mc.x, mc.y, mc.w, mc.h, bullet.x, bullet.y, bullet.w / 2):
+            if self.isCollidingRectangleCircle(mc, bullet):
                 print("Collision of " + str(mc) + " and " + str(bullet))
                             
         if self.mainCharacter.isCollidingGround():
@@ -99,12 +113,20 @@ class Game:
                     minPlatformY = platform.y                        
         return minPlatformY
     
-    def isOnJumpPlatform(self, entity):
+    def getCurrentPlatforms(self, entity):
+        currentPlatforms = []
         for platforms in self.platformLayers:
             for platform in platforms:
                 isEntityInPlatformX = (platform.x <= entity.x <= platform.x + platform.w) or (platform.x <= entity.x + entity.w <= platform.x + platform.w)
-                if isinstance(platform, JumpPlatform) and entity.y + entity.h == platform.y and isEntityInPlatformX:
-                    return platform
+                if entity.y + entity.h == platform.y and isEntityInPlatformX:
+                    currentPlatforms.append(platform)
+        return currentPlatforms
+    
+    def isOnJumpPlatform(self, entity):
+        platforms = self.getCurrentPlatforms(entity)
+        for platform in platforms:
+            if isinstance(platform, JumpPlatform):
+                return platform
         return None
     
     def isOnLowestLayer(self, entity):
@@ -127,7 +149,10 @@ class Game:
             entity.velocityY = 0
         return
         
-    def isCollidingRectangleCircle(self, rectangleX, rectangleY, w, h, circleX, circleY, radius):
+    def isCollidingRectangleCircle(self, entityRectangle, entityCircle):
+        rectangleX, rectangleY = entityRectangle.x, entityRectangle.y
+        w, h = entityRectangle.w, entityRectangle.h
+        circleX, circleY, radius = entityCircle.x, entityCircle.y, entityCircle.w / 2
         if utils.isLineSegmentIntersectCircle(rectangleX, rectangleY, rectangleX + w, rectangleY, circleX, circleY, radius):
             return True
         if utils.isLineSegmentIntersectCircle(rectangleX, rectangleY, rectangleX, rectangleY + h, circleX, circleY, radius):
@@ -149,7 +174,6 @@ class Game:
     def generatePlatformLayer(self, seed, y):
         platforms = []
         PLATFORM_HEIGHT = 15
-        print(seed)
         for i, platform_type in enumerate(seed):
             if platform_type == 'G':
                 continue
@@ -180,12 +204,9 @@ class Entity:
         return self.__class__.__name__ + " at " + str(self.x) + " " + str(self.y) 
         
 
-class Platform:
+class Platform(Entity):
     def __init__(self, x, y, w, h):
-        self.x = x
-        self.y = y
-        self.w = w
-        self.h = h
+        Entity.__init__(self, x, y, w, h)
         self.color = color(255)
     
     def display(self):
@@ -202,6 +223,20 @@ class JumpPlatform(Platform):
     
     def onCollision(self, entity):
         entity.velocityY = self.jumpSpeed
+        
+
+class PressurePlatform(Platform):
+    def __init__(self, x, y, w, h):
+        Platform.__init__(self, x, y, w, h)
+        self.isPressed = False
+        
+    def display(self):
+        Platform.display(self)
+        fill(255, 100, 100)
+        if self.isPressed:
+            rect(self.x + 10, self.y - 5, self.w - 20, 5)
+        else: 
+            rect(self.x + 10, self.y - 10, self.w - 20, 10)
 
 
 class MainCharacter(Entity):
@@ -234,21 +269,27 @@ class MainCharacter(Entity):
         if self.y + self.h >= game.groundY:
             return True
         return False
-
-
-class Bullet(Entity):
-    def __init__(self, initialX, initialY, w, h, speed, angle):
-        Entity.__init__(self, initialX, initialY, w, h)
-        self.speed = speed
-        self.angle = angle
-        self.velocityX = self.speed * cos(self.angle)
-        self.velocityY = self.speed * sin(self.angle)
-        
+   
+   
+class Bomb(Entity):
+    def __init__(self, owner, w, h):
+        Entity.__init__(self, 0, 0, w, h)
+        self.owner = owner
+        self.x, self.y = self.getCoords()
+    
+    def getCoords(self):
+        return self.owner.x + self.owner.w / 2, self.owner.y - self.h / 2
+    
     def display(self):
-        fill(0, 0, 0)
-        stroke(40)
-        ellipse(self.x, self.y, self.w, self.h)
+        x, y = self.getCoords()
+        if (isinstance(self.owner, PressurePlatform)):
+            y -= 5
+        fill(95)
+        ellipse(x, y, self.w, self.h)
+    
         
+    
+   
 
 class Enemy(Entity):
     def __init__(self, initialX, initialY, w, h):
@@ -288,6 +329,20 @@ class Enemy(Entity):
                     angle,
                 )
             )  # arbitrary values for now
+
+
+class Bullet(Entity):
+    def __init__(self, initialX, initialY, w, h, speed, angle):
+        Entity.__init__(self, initialX, initialY, w, h)
+        self.speed = speed
+        self.angle = angle
+        self.velocityX = self.speed * cos(self.angle)
+        self.velocityY = self.speed * sin(self.angle)
+        
+    def display(self):
+        fill(0, 0, 0)
+        stroke(40)
+        ellipse(self.x, self.y, self.w, self.h)
 
 
 game = Game(CANVAS_WIDTH, CANVAS_HEIGHT, CANVAS_HEIGHT)
