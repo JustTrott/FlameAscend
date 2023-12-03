@@ -3,7 +3,7 @@ CANVAS_HEIGHT = 932
 BACKGROUND_COLOR = color(215)
 FREE_FALL_ACCELERATION = 0.6
 MAX_FALL_SPEED = 12
-MC_JUMP_SPEED = 13.5
+MC_JUMP_SPEED = -13.5
 BULLETS = []
 PLATFORM_SEEDS = ["GNJGNJJNGJNG", "NJGGJNNJGGJN", "JGNJNGGNJNGJ", "GJGJGJJGJGJG", "GNNJGJJGJNNG", "JGGNJNNJNGGJ", "JGJNJGGJNJGJ"]
 LAYER_HEIGHT = 150
@@ -72,11 +72,12 @@ class Game:
     def update(self):
         currentGroundY = self.getHighestPlatformY(self.mainCharacter)
         mc = self.mainCharacter
-        mc.move(currentGroundY)
+        mc.applyKeyPresses()
         self.applyMovement(mc, True, currentGroundY)
         if not mc.flyMode:
-            if self.isOnJumpPlatform(mc):
-                mc.jump()
+            jumpPlatform = self.isOnJumpPlatform(mc)
+            if jumpPlatform is not None:
+                jumpPlatform.onCollision(mc)
             self.applyGravity(mc, self.fallAcceleration)
         if mc.keyHandler[DOWN] and mc.y + mc.h == currentGroundY and not self.isOnLowestLayer(mc) and mc.velocityY == 0:
             mc.velocityY += self.fallAcceleration
@@ -103,8 +104,8 @@ class Game:
             for platform in platforms:
                 isEntityInPlatformX = (platform.x <= entity.x <= platform.x + platform.w) or (platform.x <= entity.x + entity.w <= platform.x + platform.w)
                 if isinstance(platform, JumpPlatform) and entity.y + entity.h == platform.y and isEntityInPlatformX:
-                    return True
-        return False
+                    return platform
+        return None
     
     def isOnLowestLayer(self, entity):
         return entity.y + entity.h == self.platformLayers[0][0].y
@@ -155,7 +156,7 @@ class Game:
             elif platform_type == 'N':
                 platforms.append(Platform(2*PLATFORM_WIDTH + (i * PLATFORM_WIDTH), y, PLATFORM_WIDTH, PLATFORM_HEIGHT))
             else:
-                platforms.append(JumpPlatform(2*PLATFORM_WIDTH + (i * PLATFORM_WIDTH), y, PLATFORM_WIDTH, PLATFORM_HEIGHT))
+                platforms.append(JumpPlatform(2*PLATFORM_WIDTH + (i * PLATFORM_WIDTH), y, PLATFORM_WIDTH, PLATFORM_HEIGHT, MC_JUMP_SPEED))
         return platforms
     
     
@@ -194,12 +195,13 @@ class Platform:
 
 
 class JumpPlatform(Platform):
-    def __init__(self, x, y, w, h):
+    def __init__(self, x, y, w, h, jumpSpeed):
         Platform.__init__(self, x, y, w, h)
         self.color = color(100, 255, 100)
+        self.jumpSpeed = jumpSpeed
     
     def onCollision(self, entity):
-        entity.jump()
+        entity.velocityY = self.jumpSpeed
 
 
 class MainCharacter(Entity):
@@ -208,11 +210,7 @@ class MainCharacter(Entity):
         self.keyHandler = {LEFT: False, RIGHT: False, UP: False, DOWN: False}
         self.flyMode = False
 
-    def jump(self):
-        self.velocityY = -MC_JUMP_SPEED
-
-    # name could be better
-    def move(self, groundY):
+    def applyKeyPresses(self):
         deltaX = 0
         if self.flyMode:
             self.velocityY = 0
@@ -230,9 +228,6 @@ class MainCharacter(Entity):
             deltaX += 6
         if self.keyHandler[LEFT]:
             deltaX -= 6
-        # manual jumping is deprecated 
-        # if self.keyHandler[UP] and (self.y + self.h == groundY):
-            # self.jump()
         self.velocityX = deltaX
 
     def isCollidingGround(self):
