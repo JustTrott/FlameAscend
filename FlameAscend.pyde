@@ -350,13 +350,13 @@ class Enemy(Entity):
 
         for i in range(numBulletsPerShot):
             yOffset = i * verticaDistanceBetweenbullets
-            dx = targetX - (self.x + self.w // 2)
+            dx = targetX - (self.x )
             dy = targetY - (self.y + self.h // 2) + yOffset
             angle = atan2(dy, dx)
             BULLETS.append(
                 Bullet(
                     self.x + self.w // 2,
-                    self.y + self.h + 10,
+                    self.y + self.h /2,
                     20,
                     20,
                     10,
