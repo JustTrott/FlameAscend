@@ -408,8 +408,8 @@ class ShootingPowerUp(Entity):
         for i in range(numBulletsPerShot):
             bullet_2.append(
                 Bullet(
-                    self.x + self.w // 2,
-                    self.y + self.h + 10,
+                    game.mainCharacter.x + game.mainCharacter.w / 2,
+                    game.mainCharacter.y + game.mainCharacter.h / 2,
                     20,
                     20,
                     10,
