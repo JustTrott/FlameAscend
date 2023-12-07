@@ -5,7 +5,7 @@ FREE_FALL_ACCELERATION = 0.6
 MAX_FALL_SPEED = 12
 MC_JUMP_SPEED = -13.5
 BULLETS = []
-bullet_2=[]
+BULLET_2=[]
 PLATFORM_SEEDS = ["GNJGNJJNGJNG", "NJGGJNNJGGJN", "JGNJNGGNJNGJ", "GJGJGJJGJGJG", "GNNJGJJGJNNG", "JGGNJNNJNGGJ", "JGJNJGGJNJGJ"]
 LAYER_HEIGHT = 150
 PLATFORM_WIDTH = 80
@@ -406,7 +406,7 @@ class ShootingPowerUp(Entity):
         numBulletsPerShot = 3
 
         for i in range(numBulletsPerShot):
-            bullet_2.append(
+            BULLET_2.append(
                 Bullet(
                     game.mainCharacter.x + game.mainCharacter.w / 2,
                     game.mainCharacter.y + game.mainCharacter.h / 2,
@@ -456,13 +456,13 @@ def draw():
         power_up.display()
         power_up.update()
     
-    global bullet_2
-    for bullet in bullet_2:
+    global BULLET_2
+    for bullet in BULLET_2:
         bullet.display()
         bullet.update()
 
     # Clean up bullets that are off-screen
-    bullet_2 = [bullet for bullet in bullet_2 if bullet.y > 0 and bullet.y < CANVAS_HEIGHT]
+    BULLET_2 = [bullet for bullet in BULLET_2 if bullet.y > 0 and bullet.y < CANVAS_HEIGHT]
 
 
 
