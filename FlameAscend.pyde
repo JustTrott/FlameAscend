@@ -1,15 +1,15 @@
 CANVAS_WIDTH = 1280
 CANVAS_HEIGHT = 800
 BACKGROUND_COLOR = color(215)
-FREE_FALL_ACCELERATION = 0.6
-MAX_FALL_SPEED = 12
-MC_JUMP_SPEED = -13.5
+FREE_FALL_ACCELERATION = 0.4
+MAX_FALL_SPEED = 9
+MC_JUMP_SPEED = -9
 # BULLETS = []
 BULLET_2=[]
 PLATFORM_SEEDS = ["NNJGNJJNGJNN", "NJGGJNNJGGJN", "JGNJNGGNJNGJ", "NJGJGJJGJGJN", "GNNJGJJGJNNG", "JGGNJNNJNGGJ", "JGJNNGGNNJGJ"]
-LAYER_HEIGHT = 150
-PLATFORM_WIDTH = 80
-START_SEED = "NNNNNNNNNNNJ"
+LAYER_HEIGHT = 100
+PLATFORM_WIDTH = 60
+START_SEEDS = ["NNNNNNNNNNNJ", "NNNJNNNNJNNN"]
 
 
 import os
@@ -51,7 +51,12 @@ class Game:
         self.h = h
         self.groundY = groundY
         self.fallAcceleration = FREE_FALL_ACCELERATION
-        self.topPlatformY = groundY - LAYER_HEIGHT
+        self.topPlatformY = groundY - 2 * LAYER_HEIGHT - PLATFORM_WIDTH * 0.5
+        
+        self.mainCharacter = MainCharacter(400, self.topPlatformY - LAYER_HEIGHT - PLATFORM_WIDTH * 0.5, PLATFORM_WIDTH * 0.5, PLATFORM_WIDTH * 0.5)  # arbitrary values for now
+        self.startY = self.mainCharacter.y
+        self.enemy = Enemy(640, 10, 70, 70)  # arbitrary values for now
+        self.mcEnemyDiff = self.enemy.y - self.mainCharacter.y
         
         self.platformLayers = []
         self.generatePlatforms()
@@ -62,9 +67,6 @@ class Game:
         self.changingFrame = None
         self.isLowestLayerVisible = True
         self.yOffset = 0
-        
-        self.mainCharacter = MainCharacter(180, groundY - LAYER_HEIGHT - PLATFORM_WIDTH * 0.6, PLATFORM_WIDTH * 0.6, PLATFORM_WIDTH * 0.6)  # arbitrary values for now
-        self.enemy = Enemy(640, 10, 70, 70)  # arbitrary values for now
         
         # Generate the power up on the top level
         randomPlatform = self.getRandomPlatform()
@@ -100,9 +102,11 @@ class Game:
         # future rising lava
         # self.groundY -= 1
         mc = self.mainCharacter
+        self.yOffset = self.startY - mc.y
         currentGroundY = self.getHighestPlatformY(mc)
         self.detectCollisions()
          
+        self.enemy.y = self.mcEnemyDiff + self.mainCharacter.y
         mc.applyKeyPresses()
         if not mc.flyMode:
             self.applyMovement(mc, True, currentGroundY)
@@ -110,7 +114,6 @@ class Game:
         if mc.keyHandler[DOWN] and mc.y + mc.h == currentGroundY and not self.isOnLowestLayer(mc) and mc.velocityY == 0:
             mc.velocityY += self.fallAcceleration
         self.enemy.update()
-        
         if self.isBombExploding:
             if self.changingFrame == None:
                 self.changingFrame = frameCount % 30
@@ -124,8 +127,7 @@ class Game:
                 self.isLowestLayerVisible = True
                 self.flickerCount = 0
                 self.changingFrame = None
-                self.yOffset += LAYER_HEIGHT
-                self.enemy.y -= LAYER_HEIGHT
+                # self.yOffset += LAYER_HEIGHT
                 self.groundY -= LAYER_HEIGHT
                 # self.mainCharacter.y += LAYER_HEIGHT
                 newPressurePlatform = self.getRandomPlatform()
@@ -243,9 +245,10 @@ class Game:
         return False
     
     def generatePlatforms(self):
-        self.platformLayers.append(self.generatePlatformLayer(START_SEED, self.topPlatformY))
-        self.topPlatformY -= LAYER_HEIGHT
-        for i in range(3):
+        for seed in START_SEEDS:
+            self.platformLayers.append(self.generatePlatformLayer(seed, self.topPlatformY))
+            self.topPlatformY -= LAYER_HEIGHT
+        for i in range(2):
             random_seed = PLATFORM_SEEDS[int(random(0, len(PLATFORM_SEEDS)))]
             self.platformLayers.append(self.generatePlatformLayer(random_seed, self.topPlatformY))
             self.topPlatformY -= LAYER_HEIGHT
@@ -257,9 +260,9 @@ class Game:
             if platform_type == 'G':
                 continue
             elif platform_type == 'N':
-                platforms.append(Platform(2*PLATFORM_WIDTH + (i * PLATFORM_WIDTH), y, PLATFORM_WIDTH, PLATFORM_HEIGHT))
+                platforms.append(Platform(280 + (i * PLATFORM_WIDTH), y, PLATFORM_WIDTH, PLATFORM_HEIGHT))
             else:
-                platforms.append(JumpPlatform(2*PLATFORM_WIDTH + (i * PLATFORM_WIDTH), y, PLATFORM_WIDTH, PLATFORM_HEIGHT, MC_JUMP_SPEED))
+                platforms.append(JumpPlatform(280 + (i * PLATFORM_WIDTH), y, PLATFORM_WIDTH, PLATFORM_HEIGHT, MC_JUMP_SPEED))
         return platforms
     
     def generateBomb(self):
