@@ -411,7 +411,7 @@ class Enemy(Entity):
         self.shootTimer += 1
 
         if self.shootTimer >= self.shootInterval:
-            # self.shoot()
+            self.shoot()
             self.shootTimer = 0
             self.shootInterval = int(random(50, 150))
 
