@@ -4,7 +4,7 @@ BACKGROUND_COLOR = color(215)
 FREE_FALL_ACCELERATION = 0.6
 MAX_FALL_SPEED = 12
 MC_JUMP_SPEED = -13.5
-BULLETS = []
+# BULLETS = []
 BULLET_2=[]
 PLATFORM_SEEDS = ["GNJGNJJNGJNG", "NJGGJNNJGGJN", "JGNJNGGNJNGJ", "GJGJGJJGJGJG", "GNNJGJJGJNNG", "JGGNJNNJNGGJ", "JGJNJGGJNJGJ"]
 LAYER_HEIGHT = 150
@@ -52,89 +52,110 @@ class Game:
         self.groundY = groundY
         self.fallAcceleration = FREE_FALL_ACCELERATION
         self.topPlatformY = groundY - LAYER_HEIGHT
+        
         self.platformLayers = []
-        self.CIRCLES=[]
         self.generatePlatforms()
-        self.generateCircles()
+        self.platformLayers[0][-2] = PressurePlatform(self.platformLayers[0][-2].x, self.platformLayers[0][-2].y, self.platformLayers[0][-2].w, self.platformLayers[0][-2].h)
+        self.bomb = Bomb(self.platformLayers[0][5], 25, 25)
+        self.isBombExploding = False
+        self.flickerCount = 0
+        self.changingFrame = None
+        self.isLowestLayerVisible = True
+        
         self.mainCharacter = MainCharacter(180, groundY - LAYER_HEIGHT - PLATFORM_WIDTH * 0.6, PLATFORM_WIDTH * 0.6, PLATFORM_WIDTH * 0.6)  # arbitrary values for now
         self.enemy = Enemy(640, 10, 70, 70)  # arbitrary values for now
-        self.bomb = Bomb(self.platformLayers[0][5], 25, 25)
-        self.platformLayers[0][-2] = PressurePlatform(self.platformLayers[0][-2].x, self.platformLayers[0][-2].y, self.platformLayers[0][-2].w, self.platformLayers[0][-2].h)
+        
+        # Generate the power up on the top level
         random_layer_index = int(random(1, len(self.platformLayers) - 1))
         random_platform_index = int(random(1, len(self.platformLayers[random_layer_index]) - 1))
         self.powerUp = ShootingPowerUp(self.platformLayers[random_layer_index][random_platform_index], 20, 20)
-
+        
+        # self.CIRCLES=[]
+        # self.generateCircles()
+        
         
     def display(self):
         GROUND_STROKE_WIDTH = 0
         background(BACKGROUND_COLOR)
         stroke(GROUND_STROKE_WIDTH)
         line(0, self.groundY, self.w, self.groundY)
-        for platforms in self.platformLayers:
+        platformLayersToDisplay = self.platformLayers if self.isLowestLayerVisible else self.platformLayers[1:]
+        for platforms in platformLayersToDisplay:
             for platform in platforms:
                 platform.display()
         self.bomb.display()
         self.mainCharacter.display()
         self.enemy.display()
-        for bullet in BULLETS:
-            bullet.display()
-        
         self.powerUp.display()
             
-    
     
     def update(self):
         # future rising lava
         # self.groundY -= 1
         mc = self.mainCharacter
         currentGroundY = self.getHighestPlatformY(mc)
-        currentPlatforms = self.getCurrentPlatforms(mc)
-        if self.bomb.owner == mc:
-            for platform in self.getCurrentPlatforms(mc):
-                if isinstance(platform, PressurePlatform):
-                    self.bomb.owner = platform
-                    platform.isPressed = True
-                    break
-        if self.bomb.owner != mc and not isinstance(self.bomb.owner, PressurePlatform) and self.isCollidingRectangleCircle(mc, self.bomb):
-            self.bomb.owner = mc 
+        self.detectCollisions()
+         
         mc.applyKeyPresses()
-        self.applyMovement(mc, True, currentGroundY)
         if not mc.flyMode:
-            for platform in currentPlatforms:
-                if isinstance(platform, JumpPlatform):
-                    platform.onCollision(mc)
-                    break
+            self.applyMovement(mc, True, currentGroundY)
             self.applyGravity(mc, self.fallAcceleration)
         if mc.keyHandler[DOWN] and mc.y + mc.h == currentGroundY and not self.isOnLowestLayer(mc) and mc.velocityY == 0:
             mc.velocityY += self.fallAcceleration
         self.enemy.update()
-        for bullet in BULLETS:
+        
+        # if self.isBombExploding:
+        #     if self.changingFrame == None:
+        #         self.changingFrame = frameCount % 30
+        #     if frameCount % 30 == self.changingFrame:
+        #         self.flickerCount += 1
+        #         self.isLowestLayerVisible = not self.isLowestLayerVisible
+        #     if self.flickerCount == 6:
+        #         self.destroyLowestLayer()
+        #         self.addNewLayer()
+        #         self.isBombExploding = False
+        #         self.isLowestLayerVisible = True
+        #         self.flickerCount = 0
+        #         self.changingFrame = None
+        # for circles in self.CIRCLES:
+        #     if self.isCollidingRectangleCircle(self.enemy, circles):
+        #         print("hhhhhhhhhhhhhhhhhhhhh")
+                
+
+    def detectCollisions(self):
+        mc = self.mainCharacter
+        currentPlatforms = self.getCurrentPlatforms(mc)
+        
+        for bullet in self.enemy.bullets:
             self.applyMovement(bullet)
             if self.isCollidingRectangleCircle(mc, bullet):
                 print("Collision of " + str(mc) + " and " + str(bullet))
-                            
-        if self.mainCharacter.isCollidingGround():
-            print("Collision of " + str(self.mainCharacter) + " and ground")
 
-                            
-        if self.mainCharacter.isCollidingGround():
-            print("Collision of " + str(self.mainCharacter) + " and ground")
-        
-        for circles in self.CIRCLES:
-            if self.isCollidingRectangleCircle(self.enemy, circles):
-                print("hhhhhhhhhhhhhhhhhhhhh")
+        if self.bomb.owner == mc:
+            for platform in currentPlatforms:
+                if isinstance(platform, PressurePlatform):
+                    self.bomb.owner = platform
+                    platform.isPressed = True
+                    self.triggerBombExplosion()
+                    break
                 
-                
-    
-        if self.isCollidingRectangleCircle(self.mainCharacter, self.powerUp):
+        if self.bomb.owner != mc and not isinstance(self.bomb.owner, PressurePlatform) and self.isCollidingRectangleCircle(mc, self.bomb):
+            self.bomb.owner = mc
+                                                                                    
+        if mc.isCollidingGround():
+            print("Collision of " + str(mc) + " and ground")
+
+        if self.isCollidingRectangleCircle(mc, self.powerUp):
             self.powerUp.shoot()
             self.powerUp.update()
             print("HAHAHA")
             
             self.powerUp.resetPowerUp()
-            
         
-                    
+        for platform in currentPlatforms:
+            if isinstance(platform, JumpPlatform):
+                platform.onCollision(mc)
+                break
                     
     def getHighestPlatformY(self, entity):
         minPlatformY = self.groundY
@@ -215,13 +236,25 @@ class Game:
                 platforms.append(JumpPlatform(2*PLATFORM_WIDTH + (i * PLATFORM_WIDTH), y, PLATFORM_WIDTH, PLATFORM_HEIGHT, MC_JUMP_SPEED))
         return platforms
     
-    def generateCircles(self):
-        num_circles = 5  # You can adjust the number of circles
-        for i in range(num_circles):
-            x = int(random(0, self.w))
-            y = int(random(self.groundY - LAYER_HEIGHT * 3, self.groundY - LAYER_HEIGHT))
-            radius = int(random(20, 50))
-            self.CIRCLES.append(Entity(x, y, radius * 2, radius * 2))
+    def addNewLayer(self):
+        random_seed = PLATFORM_SEEDS[int(random(0, len(PLATFORM_SEEDS)))]
+        self.platformLayers.append(self.generatePlatformLayer(random_seed, self.topPlatformY))
+        self.topPlatformY -= LAYER_HEIGHT
+        
+    def destroyLowestLayer(self):
+        del self.platformLayers[0]
+    
+    # def generateCircles(self):
+    #     num_circles = 5  # You can adjust the number of circles
+    #     for i in range(num_circles):
+    #         x = int(random(0, self.w))
+    #         y = int(random(self.groundY - LAYER_HEIGHT * 3, self.groundY - LAYER_HEIGHT))
+    #         radius = int(random(20, 50))
+    #         self.CIRCLES.append(Entity(x, y, radius * 2, radius * 2))
+    
+    def triggerBombExplosion(self):
+        self.isBombExploding = True
+        
     
 class Entity:
     def __init__(self, initialX, initialY, w, h):
@@ -330,6 +363,7 @@ class Bomb(Entity):
 class Enemy(Entity):
     def __init__(self, initialX, initialY, w, h):
         Entity.__init__(self, initialX, initialY, w, h)
+        self.bullets = []
         self.shootInterval = int(random(50, 150))
         self.shootTimer = 0
 
@@ -337,7 +371,7 @@ class Enemy(Entity):
         self.shootTimer += 1
 
         if self.shootTimer >= self.shootInterval:
-            self.shoot()
+            # self.shoot()
             self.shootTimer = 0
             self.shootInterval = int(random(50, 150))
 
@@ -353,7 +387,7 @@ class Enemy(Entity):
             dx = targetX - (self.x )
             dy = targetY - (self.y + self.h // 2) + yOffset
             angle = atan2(dy, dx)
-            BULLETS.append(
+            self.bullets.append(
                 Bullet(
                     self.x + self.w // 2,
                     self.y + self.h /2,
@@ -363,6 +397,11 @@ class Enemy(Entity):
                     angle,
                 )
             )  # arbitrary values for now
+            
+    def display(self):
+        Entity.display(self)
+        for bullet in self.bullets:
+            bullet.display()
 
 
 class Bullet(Entity):
@@ -463,8 +502,6 @@ def draw():
 
     # Clean up bullets that are off-screen
     BULLET_2 = [bullet for bullet in BULLET_2 if bullet.y > 0 and bullet.y < CANVAS_HEIGHT]
-
-
 
 
 def keyPressed():
