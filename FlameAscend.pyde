@@ -56,8 +56,7 @@ class Game:
         self.groundY = groundY
         self.fallAcceleration = FREE_FALL_ACCELERATION
         self.topPlatformY = groundY - 2 * LAYER_HEIGHT - PLATFORM_WIDTH * 0.5
-        
-        self.mainCharacter = MainCharacter(400, self.topPlatformY - LAYER_HEIGHT - PLATFORM_WIDTH * 0.5, PLATFORM_WIDTH * 0.5, PLATFORM_WIDTH * 0.5)  # arbitrary values for now
+        self.mainCharacter = MainCharacter(400, self.topPlatformY - 64, 32, 64, "mc-idle.png", "mc-walking-right.png", 4)  # arbitrary values for now
         self.startY = self.mainCharacter.y
         self.enemy = Enemy(640, 10, 70, 70)  # arbitrary values for now
         self.mcEnemyDiff = self.enemy.y - self.mainCharacter.y
@@ -120,11 +119,11 @@ class Game:
         self.enemy.update()
         if self.isBombExploding:
             if self.changingFrame == None:
-                self.changingFrame = frameCount % 30
-            if frameCount % 30 == self.changingFrame:
+                self.changingFrame = frameCount % 15
+            if frameCount % 20 == self.changingFrame:
                 self.flickerCount += 1
                 self.isLowestLayerVisible = not self.isLowestLayerVisible
-            if self.flickerCount == 6:
+            if self.flickerCount == 9:
                 self.destroyLowestLayer()
                 self.addNewLayer()
                 self.isBombExploding = False
@@ -301,17 +300,24 @@ class Game:
         
     
 class Entity:
-    def __init__(self, initialX, initialY, w, h):
+    def __init__(self, initialX, initialY, w, h, imgName=None):
         self.x = initialX
         self.y = initialY
         self.w = w
         self.h = h
         self.velocityX = 0
         self.velocityY = 0
+        if imgName is None:
+            self.img = None
+        else:
+            self.img = loadImage(os.getcwd() + "/images/" + imgName)
 
     def display(self, yOffset):
         fill(255, 255, 255)
-        rect(self.x, self.y + yOffset, self.w, self.h)
+        if self.img is None:
+            rect(self.x, self.y + yOffset, self.w, self.h)
+        if self.img is not None:
+            image(self.img, self.x, self.y + yOffset, self.w, self.h)
         
     def __str__(self):
         return self.__class__.__name__ + " at " + str(self.x) + " " + str(self.y)
@@ -356,10 +362,14 @@ class PressurePlatform(Platform):
 
 
 class MainCharacter(Entity):
-    def __init__(self, initialX, initialY, w, h):
+    def __init__(self, initialX, initialY, w, h, imgIdleName, imgWalkingName, totalFrames):
         Entity.__init__(self, initialX, initialY, w, h)
         self.keyHandler = {LEFT: False, RIGHT: False, UP: False, DOWN: False}
         self.flyMode = False
+        self.imgIdle = loadImage(os.getcwd() + "/images/" + imgIdleName)
+        self.imgWalking = loadImage(os.getcwd() + "/images/" + imgWalkingName)
+        self.frame = 0
+        self.totalFrames = totalFrames
 
     def applyKeyPresses(self):
         deltaX = 0
@@ -380,6 +390,16 @@ class MainCharacter(Entity):
         if self.keyHandler[LEFT]:
             deltaX -= 5
         self.velocityX = deltaX
+        
+    def display(self, yOffset):
+        if self.velocityX > 0:
+            image(self.imgWalking, self.x, self.y + yOffset, self.w, self.h, int(self.frame) * self.w, 0, (int(self.frame) + 1) * self.w, self.h)
+            self.frame = (self.frame + 0.15) % self.totalFrames
+        elif self.velocityX < 0:
+            image(self.imgWalking, self.x, self.y + yOffset, self.w, self.h, (int(self.frame) + 1) * self.w, 0, int(self.frame) * self.w, self.h)
+            self.frame = (self.frame + 0.15) % self.totalFrames
+        else:
+            image(self.imgIdle, self.x, self.y + yOffset, self.w, self.h)
 
     def isCollidingGround(self):
         if self.y + self.h >= game.groundY:
