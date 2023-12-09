@@ -3,10 +3,14 @@ CANVAS_HEIGHT = 800
 BACKGROUND_COLOR = color(215)
 FREE_FALL_ACCELERATION = 0.4
 MAX_FALL_SPEED = 9
-MC_JUMP_SPEED = -9
+MC_JUMP_SPEED = -9.5
 # BULLETS = []
 BULLET_2=[]
-PLATFORM_SEEDS = ["NNJGNJJNGJNN", "NJGGJNNJGGJN", "JGNJNGGNJNGJ", "NJGJGJJGJGJN", "GNNJGJJGJNNG", "JGGNJNNJNGGJ", "JGJNNGGNNJGJ"]
+PLATFORM_SEEDS = ["NNJGNJJNGJNN", "NJGGJNNJGGJN", "JGNJNGGNJNGJ", 
+                  "GNNJGJJGJNNG", "JGGNJNNJNGGJ", "JGJNNGGNNJGJ", "GGGGNJJNGGGG", 
+                  "GJNNGGGGNNJG", "NJNNGJJGNNJN", "NJNGNJJNGNJN", "GGGNJNNJNGGG",
+                  "GJNNGJJGNNJG", "NNJNNGGNNJNN", "GGJNGGGGNJGG", "NJNGGJJGGNJN",
+                  "JNGGGJJGGGNJ", "NJGGGJJGGGJN", "GGGJNNNNJGGG", "GGNJGGGGJNGG"]
 LAYER_HEIGHT = 100
 PLATFORM_WIDTH = 60
 START_SEEDS = ["NNNNNNNNNNNJ", "NNNJNNNNJNNN"]
@@ -288,8 +292,8 @@ class Game:
     #         self.CIRCLES.append(Entity(x, y, radius * 2, radius * 2))
     
     def getRandomPlatform(self):
-        random_layer_index = int(random(1, len(self.platformLayers) - 1))
-        random_platform_index = int(random(1, len(self.platformLayers[random_layer_index]) - 1))
+        random_layer_index = int(random(0, len(self.platformLayers)))
+        random_platform_index = int(random(0, len(self.platformLayers[random_layer_index])))
         return self.platformLayers[random_layer_index][random_platform_index]
     
     def triggerBombExplosion(self):
@@ -372,9 +376,9 @@ class MainCharacter(Entity):
                 self.y += 5
             return
         if self.keyHandler[RIGHT]:
-            deltaX += 6
+            deltaX += 5
         if self.keyHandler[LEFT]:
-            deltaX -= 6
+            deltaX -= 5
         self.velocityX = deltaX
 
     def isCollidingGround(self):
