@@ -6,7 +6,7 @@ MAX_FALL_SPEED = 9
 MC_JUMP_SPEED = -9
 # BULLETS = []
 BULLET_2=[]
-ACTIVE_ACTIVE_LASERS=[]
+ACTIVE_LASERS=[]
 PLATFORM_SEEDS = ["NNJGNJJNGJNN", "NJGGJNNJGGJN", "JGNJNGGNJNGJ", "NJGJGJJGJGJN", "GNNJGJJGJNNG", "JGGNJNNJNGGJ", "JGJNNGGNNJGJ"]
 LAYER_HEIGHT = 100
 PLATFORM_WIDTH = 60
@@ -95,7 +95,7 @@ class Game:
             bullet.display(self.yOffset)
             bullet.update()
             
-        for laser in ACTIVE_ACTIVE_LASERS:
+        for laser in ACTIVE_LASERS:
             laser.display(self.yOffset)
             laser.update()
             
@@ -179,7 +179,7 @@ class Game:
             print("HAHAHA")
             self.powerUp.resetPowerUp()
             
-        for laser in ACTIVE_ACTIVE_LASERS:
+        for laser in ACTIVE_LASERS:
             if self.isCollidingRectangleCircle(mc, laser):
                 print("Collision of Laser")
             
@@ -474,7 +474,7 @@ class Enemy(Entity):
         targetX = game.mainCharacter.x
         targetY = game.mainCharacter.y
 
-        ACTIVE_ACTIVE_LASERS.append(
+        ACTIVE_LASERS.append(
             Laser(
                 self.x + self.w // 2,
                 self.y + self.h / 2,
@@ -491,7 +491,7 @@ class Enemy(Entity):
         for bullet in self.bullets:
             bullet.display(yOffset)
 
-        for laser in ACTIVE_ACTIVE_LASERS:
+        for laser in ACTIVE_LASERS:
             laser.display(yOffset)
 
 
