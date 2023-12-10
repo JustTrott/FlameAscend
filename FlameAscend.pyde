@@ -6,6 +6,7 @@ MAX_FALL_SPEED = 9
 MC_JUMP_SPEED = -9
 # BULLETS = []
 BULLET_2=[]
+ACTIVE_LASERS=[]
 PLATFORM_SEEDS = ["NNJGNJJNGJNN", "NJGGJNNJGGJN", "JGNJNGGNJNGJ", "NJGJGJJGJGJN", "GNNJGJJGJNNG", "JGGNJNNJNGGJ", "JGJNNGGNNJGJ"]
 LAYER_HEIGHT = 100
 PLATFORM_WIDTH = 60
@@ -94,6 +95,10 @@ class Game:
             bullet.display(self.yOffset)
             bullet.update()
             
+        for laser in ACTIVE_LASERS:
+            laser.display(self.yOffset)
+            laser.update()
+            
     
     def update(self):
         # future rising lava
@@ -172,9 +177,12 @@ class Game:
             self.powerUp.shoot()
             self.powerUp.update()
             print("HAHAHA")
-            
             self.powerUp.resetPowerUp()
-        
+            
+        for laser in ACTIVE_LASERS:
+            if self.isCollidingRectangleCircle(mc, laser):
+                print("Collision of Laser")
+            
         for platform in currentPlatforms:
             if isinstance(platform, JumpPlatform):
                 platform.onCollision(mc)
@@ -237,6 +245,23 @@ class Game:
             return True
         if utils.isLineSegmentIntersectCircle(rectangleX, rectangleY + h, rectangleX + w, rectangleY + h, circleX, circleY, radius):
             return True
+        return False
+    
+    def isCollidingRectangleLine(self, entityRectangle, entityLine):
+        rectangleX, rectangleY = entityRectangle.x, entityRectangle.y
+        w, h = entityRectangle.w, entityRectangle.h
+        lineX1, lineY1, lineX2, lineY2 = entityLine.x1, entityLine.y1, entityLine.x2, entityLine.y2
+
+        # Check if any of the rectangle edges intersect with the line segment
+        if utils.isLineSegmentIntersectLine(rectangleX, rectangleY, rectangleX + w, rectangleY, lineX1, lineY1, lineX2, lineY2):
+            return True
+        if utils.isLineSegmentIntersectLine(rectangleX, rectangleY, rectangleX, rectangleY + h, lineX1, lineY1, lineX2, lineY2):
+            return True
+        if utils.isLineSegmentIntersectLine(rectangleX + w, rectangleY, rectangleX + w, rectangleY + h, lineX1, lineY1, lineX2, lineY2):
+            return True
+        if utils.isLineSegmentIntersectLine(rectangleX, rectangleY + h, rectangleX + w, rectangleY + h, lineX1, lineY1, lineX2, lineY2):
+            return True
+
         return False
     
     def generatePlatforms(self):
@@ -394,17 +419,35 @@ class Enemy(Entity):
         self.bullets = []
         self.shootInterval = int(random(50, 150))
         self.shootTimer = 0
+        self.bulletCount=0
+        self.laserVisible = False
+        self.canShootBullet = True  
+        self.laserTimer = 0
         self.bulletTypes= int(random(0,3))
-
+        
     def update(self):
         self.shootTimer += 1
 
         if self.shootTimer >= self.shootInterval:
-            self.shoot()
-            self.shootTimer = 0
-            self.shootInterval = int(random(50, 150))
-            
+            if self.canShootBullet:
+                self.shoot()
+                self.shootTimer = 0
+                self.shootInterval = int(random(50, 150))
+                self.bulletCount += 1
 
+        if 5 <= self.bulletCount <= 10:
+            self.bulletCount = 0
+            self.canShootBullet = False  # Disable bullet shooting
+            self.laserVisible = True
+            self.laserTimer = 0
+            self.generateRandomLaser()
+
+        if self.laserVisible:
+            self.laserTimer += 1
+            if self.laserTimer >= 30:  # Adjust the duration the laser is visible
+                self.laserVisible = False
+                self.canShootBullet = True  # Enable bullet shooting after laser duration
+    
     def shoot(self):
         numBulletsPerShot = 1
         verticaDistanceBetweenbullets = 1
@@ -467,12 +510,34 @@ class Enemy(Entity):
                     )
                 )  # arbitrary values for now
                 self.bulletTypes= int(random(0,3))
+                
+        elif self.bulletTypes == 3:
             
+            self.generateRandomLaser()
             
+    def generateRandomLaser(self):
+        targetX = game.mainCharacter.x
+        targetY = game.mainCharacter.y
+
+        ACTIVE_LASERS.append(
+            Laser(
+                self.x + self.w // 2,
+                self.y + self.h / 2,
+                targetX + game.mainCharacter.w // 2,
+                targetY + game.mainCharacter.h // 2,
+                10,
+                10,
+                10,
+            )
+        )
+
     def display(self, yOffset):
         Entity.display(self, yOffset)
         for bullet in self.bullets:
             bullet.display(yOffset)
+
+        for laser in ACTIVE_LASERS:
+            laser.display(yOffset)
 
 
 class Bullet(Entity):
@@ -506,6 +571,7 @@ class ShootingPowerUp(Entity):
 
     def display(self, yOffset):
         fill(self.color)
+        stroke(0)
         ellipse(self.x + self.w / 2, self.y + self.h / 2 + yOffset, self.w, self.h)
         
     def shoot(self):
@@ -547,8 +613,26 @@ class ShootingPowerUp(Entity):
                 platform = game.platformLayers[random_layer_index][random_platform_index]
                 self.x = platform.x + platform.w / 2 - self.w / 2
                 self.y = platform.y - self.h
-                               
+                
+class Laser(Entity):
+    def __init__(self, initialX, initialY, targetX, targetY, w, h, speed):
+            Entity.__init__(self, initialX, initialY, w, h)
+            self.speed = speed
+            self.angle = atan2(targetY - initialY, targetX - initialX)
+            self.velocityX = self.speed * cos(self.angle)
+            self.velocityY = self.speed * sin(self.angle)
+    
+    def update(self):
+        self.x += self.velocityX
+        self.y += self.velocityY
 
+    def display(self, yOffset):
+        fill(255, 0, 0)  # Red color for the laser
+        stroke(255, 0, 0)
+        line(self.x, self.y + yOffset, self.x + cos(self.angle) * 1000, self.y + sin(self.angle) * 1000)
+        
+    
+            
  
 game = Game(CANVAS_WIDTH, CANVAS_HEIGHT, CANVAS_HEIGHT)
 
