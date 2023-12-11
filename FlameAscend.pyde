@@ -65,7 +65,7 @@ class Game:
         self.platformLayers = []
         self.generatePlatforms()
         self.platformLayers[0][-2] = PressurePlatform(self.platformLayers[0][-2].x, self.platformLayers[0][-2].y, self.platformLayers[0][-2].w, self.platformLayers[0][-2].h, "platform.png")
-        self.bomb = Bomb(self.platformLayers[0][5], 25, 25)
+        self.bomb = Bomb(self.platformLayers[0][5], 32, 32, "bomb.png")
         self.isBombExploding = False
         self.flickerCount = 0
         self.changingFrame = None
@@ -304,7 +304,7 @@ class Game:
         platform = self.getRandomPlatform()
         while isinstance(platform, PressurePlatform):
             platform = self.getRandomPlatform()
-        return Bomb(platform, 25, 25)
+        return Bomb(platform, 32, 32, "bomb.png")
     
     def addNewLayer(self):
         random_seed = PLATFORM_SEEDS[int(random(0, len(PLATFORM_SEEDS)))]
@@ -432,8 +432,8 @@ class MainCharacter(Entity):
    
    
 class Bomb(Entity):
-    def __init__(self, owner, w, h):
-        Entity.__init__(self, 0, 0, w, h)
+    def __init__(self, owner, w, h, imgName):
+        Entity.__init__(self, 0, 0, w, h, imgName)
         self.owner = owner
         self.x, self.y = self.getCoords()
     
@@ -444,8 +444,10 @@ class Bomb(Entity):
         x, y = self.getCoords()
         if (isinstance(self.owner, PressurePlatform)):
             y -= 5
-        fill(95)
-        ellipse(x, y + yOffset, self.w, self.h)
+        # fill(95)
+        # ellipse(x, y + yOffset, self.w, self.h)
+        # display image with x and y converted to top right corner
+        image(self.img, x - self.w / 2, y - self.h / 2 + yOffset, self.w, self.h)
     
         
 class Enemy(Entity):
@@ -500,10 +502,11 @@ class Enemy(Entity):
                     Bullet(
                         self.x + self.w // 2,
                         self.y + self.h /2,
-                        20,
-                        20,
+                        32,
+                        32,
                         10,
                         angle,
+                        "fireball.png"
                     )
                 )  # arbitrary values for now
                 self.bulletTypes= int(random(0,3))
@@ -519,10 +522,11 @@ class Enemy(Entity):
                     Bullet(
                         self.x + self.w // 2,
                         self.y + self.h /2,
-                        40,
-                        40,
+                        48,
+                        48,
                         10,
                         angle,
+                        "fireball.png"
                     )
                 )  # arbitrary values for now
                 self.bulletTypes= int(random(0,3))
@@ -538,10 +542,11 @@ class Enemy(Entity):
                     Bullet(
                         self.x + self.w // 2,
                         self.y + self.h /2,
-                        40,
-                        40,
+                        48,
+                        48,
                         10,
                         angle,
+                        "fireball.png"
                     )
                 )  # arbitrary values for now
                 self.bulletTypes= int(random(0,3))
@@ -576,8 +581,8 @@ class Enemy(Entity):
 
 
 class Bullet(Entity):
-    def __init__(self, initialX, initialY, w, h, speed, angle):
-        Entity.__init__(self, initialX, initialY, w, h)
+    def __init__(self, initialX, initialY, w, h, speed, angle, imgName=None):
+        Entity.__init__(self, initialX, initialY, w, h, imgName)
         self.speed = speed
         self.angle = angle
         self.velocityX = self.speed * cos(self.angle)
@@ -586,7 +591,11 @@ class Bullet(Entity):
     def display(self, yOffset):
         fill(0, 0, 0)
         stroke(40)
-        ellipse(self.x, self.y + yOffset, self.w, self.h)
+        # ellipse(self.x, self.y + yOffset, self.w, self.h)
+        if self.img is None:
+            ellipse(self.x, self.y + yOffset, self.w, self.h)
+        else:
+            image(self.img, self.x - self.w / 2, self.y - self.h / 2 + yOffset, self.w, self.h)
         
     def update(self):
         self.x =self.x
@@ -729,6 +738,8 @@ def setup():
 
 
 def draw():
+    # rotate(PI/2)
+    # translate(0, -800)
     shieldPowerUp.display(game.yOffset)
     game.display()
     game.update()
@@ -749,7 +760,7 @@ def keyPressed():
         del BULLETS[:]
     if key == 'k':
         # game.enemy.shoot()
-        BULLETS.append(Bullet(game.mainCharacter.x, game.mainCharacter.y, 100, 100, 0, 0))
+        game.enemy.bullets.append(Bullet(game.mainCharacter.x, game.mainCharacter.y, 112, 128, 0, 0, "fireball.png"))
     if key == 'l':
         loop()
     if key == 'p':
