@@ -1,6 +1,6 @@
-CANVAS_WIDTH = 1280
+xCANVAS_WIDTH = 1280
 CANVAS_HEIGHT = 800
-BACKGROUND_COLOR = color(39, 100, 167)
+BACKGROUND_COLOR = color(215)
 FREE_FALL_ACCELERATION = 0.4
 MAX_FALL_SPEED = 9
 MC_JUMP_SPEED = -9.5
@@ -59,19 +59,18 @@ class Game:
         
         self.mainCharacter = MainCharacter(400, self.topPlatformY - 64, 32, 64, "mc-idle.png", "mc-walking-right.png", 4)  # arbitrary values for now
         self.startY = self.mainCharacter.y
-        self.enemy = Enemy(CANVAS_WIDTH / 2 - 64, 10, 128, 113, "enemy.png")  # arbitrary values for now
+        self.enemy = Enemy(640, 10, 70, 70)  # arbitrary values for now
         self.mcEnemyDiff = self.enemy.y - self.mainCharacter.y
         
         self.platformLayers = []
         self.generatePlatforms()
-        self.platformLayers[0][-2] = PressurePlatform(self.platformLayers[0][-2].x, self.platformLayers[0][-2].y, self.platformLayers[0][-2].w, self.platformLayers[0][-2].h, "platform.png")
+        self.platformLayers[0][-2] = PressurePlatform(self.platformLayers[0][-2].x, self.platformLayers[0][-2].y, self.platformLayers[0][-2].w, self.platformLayers[0][-2].h)
         self.bomb = Bomb(self.platformLayers[0][5], 25, 25)
         self.isBombExploding = False
         self.flickerCount = 0
         self.changingFrame = None
         self.isLowestLayerVisible = True
         self.yOffset = 0
-        self.background = loadImage(os.getcwd() + "/images/background.jpg")
         
         # Generate the power up on the top level
         randomPlatform = self.getRandomPlatform()
@@ -79,7 +78,7 @@ class Game:
         
     def display(self):
         GROUND_STROKE_WIDTH = 0
-        background(self.background)
+        background(BACKGROUND_COLOR)
         stroke(GROUND_STROKE_WIDTH)
         line(0, self.groundY + self.yOffset, self.w, self.groundY + self.yOffset)
         platformLayersToDisplay = self.platformLayers if self.isLowestLayerVisible else self.platformLayers[1:]
@@ -143,9 +142,9 @@ class Game:
                 for platforms in self.platformLayers:
                     for i in range(len(platforms)):
                         if isinstance(platforms[i], PressurePlatform):
-                            platforms[i] = Platform(platforms[i].x, platforms[i].y, platforms[i].w, platforms[i].h, "platform.png")
+                            platforms[i] = Platform(platforms[i].x, platforms[i].y, platforms[i].w, platforms[i].h)
                         if platforms[i] == newPressurePlatform:
-                            platforms[i] = PressurePlatform(platforms[i].x, platforms[i].y, platforms[i].w, platforms[i].h, "platform.png")
+                            platforms[i] = PressurePlatform(platforms[i].x, platforms[i].y, platforms[i].w, platforms[i].h)
                 self.bomb = self.generateBomb()
                 
         for power_up in [game.powerUp]:
@@ -295,9 +294,9 @@ class Game:
             if platform_type == 'G':
                 continue
             elif platform_type == 'N':
-                platforms.append(Platform(256 + (i * PLATFORM_WIDTH), y, PLATFORM_WIDTH, PLATFORM_HEIGHT, "platform.png"))
+                platforms.append(Platform(256 + (i * PLATFORM_WIDTH), y, PLATFORM_WIDTH, PLATFORM_HEIGHT))
             else:
-                platforms.append(JumpPlatform(256 + (i * PLATFORM_WIDTH), y, PLATFORM_WIDTH, PLATFORM_HEIGHT, "jump_platform.png", MC_JUMP_SPEED))
+                platforms.append(JumpPlatform(256 + (i * PLATFORM_WIDTH), y, PLATFORM_WIDTH, PLATFORM_HEIGHT, MC_JUMP_SPEED))
         return platforms
     
     def generateBomb(self):
@@ -351,19 +350,19 @@ class Entity:
         
 
 class Platform(Entity):
-    def __init__(self, x, y, w, h, imgName):
-        Entity.__init__(self, x, y, w, h, imgName)
+    def __init__(self, x, y, w, h):
+        Entity.__init__(self, x, y, w, h)
         self.color = color(255)
     
-    # def display(self, yOffset):
-    #     stroke(0)
-    #     fill(self.color)
-    #     rect(self.x, self.y + yOffset, self.w, self.h)
+    def display(self, yOffset):
+        stroke(0)
+        fill(self.color)
+        rect(self.x, self.y + yOffset, self.w, self.h)
 
 
 class JumpPlatform(Platform):
-    def __init__(self, x, y, w, h, imgName, jumpSpeed):
-        Platform.__init__(self, x, y, w, h, imgName)
+    def __init__(self, x, y, w, h, jumpSpeed):
+        Platform.__init__(self, x, y, w, h)
         self.color = color(100, 255, 100)
         self.jumpSpeed = jumpSpeed
     
@@ -372,8 +371,8 @@ class JumpPlatform(Platform):
         
 
 class PressurePlatform(Platform):
-    def __init__(self, x, y, w, h, imgName):
-        Platform.__init__(self, x, y, w, h, imgName)
+    def __init__(self, x, y, w, h):
+        Platform.__init__(self, x, y, w, h)
         self.isPressed = False
         
     def display(self, yOffset):
@@ -449,8 +448,8 @@ class Bomb(Entity):
     
         
 class Enemy(Entity):
-    def __init__(self, initialX, initialY, w, h, imgName):
-        Entity.__init__(self, initialX, initialY, w, h, imgName)
+    def __init__(self, initialX, initialY, w, h):
+        Entity.__init__(self, initialX, initialY, w, h)
         self.bullets = []
         self.shootInterval = int(random(50, 150))
         self.shootTimer = 0

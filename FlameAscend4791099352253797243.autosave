@@ -59,7 +59,7 @@ class Game:
         
         self.mainCharacter = MainCharacter(400, self.topPlatformY - 64, 32, 64, "mc-idle.png", "mc-walking-right.png", 4)  # arbitrary values for now
         self.startY = self.mainCharacter.y
-        self.enemy = Enemy(CANVAS_WIDTH / 2 - 64, 10, 128, 113, "enemy.png")  # arbitrary values for now
+        self.enemy = Enemy(640, 10, 70, 70)  # arbitrary values for now
         self.mcEnemyDiff = self.enemy.y - self.mainCharacter.y
         
         self.platformLayers = []
@@ -79,7 +79,9 @@ class Game:
         
     def display(self):
         GROUND_STROKE_WIDTH = 0
-        background(self.background)
+        # background(BACKGROUND_COLOR)
+        image(self.background, 0, 0, self.w, self.h)
+        
         stroke(GROUND_STROKE_WIDTH)
         line(0, self.groundY + self.yOffset, self.w, self.groundY + self.yOffset)
         platformLayersToDisplay = self.platformLayers if self.isLowestLayerVisible else self.platformLayers[1:]
@@ -449,8 +451,8 @@ class Bomb(Entity):
     
         
 class Enemy(Entity):
-    def __init__(self, initialX, initialY, w, h, imgName):
-        Entity.__init__(self, initialX, initialY, w, h, imgName)
+    def __init__(self, initialX, initialY, w, h):
+        Entity.__init__(self, initialX, initialY, w, h)
         self.bullets = []
         self.shootInterval = int(random(50, 150))
         self.shootTimer = 0
@@ -732,7 +734,7 @@ def draw():
     shieldPowerUp.display(game.yOffset)
     game.display()
     game.update()
-    
+    background(game.background)
 
 def keyPressed():
     if key == CODED:
