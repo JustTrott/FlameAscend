@@ -157,11 +157,8 @@ class Game:
         
         for bullet in self.enemy.bullets:
             self.applyMovement(bullet)
-            if shieldPowerUp.active== True:
-                pass
-            elif shieldPowerUp.active== False:
-                if self.isCollidingRectangleCircle(mc, bullet):
-                    print("Collision of sertual" + str(mc) + " and " + str(bullet))
+            if self.isCollidingRectangleCircle(mc, bullet):
+                print("Collision of " + str(mc) + " and " + str(bullet))
 
         if self.bomb.owner == mc:
             for platform in currentPlatforms:
@@ -586,7 +583,8 @@ class ShootingPowerUp(Entity):
         self.shooting_duration = 10
         self.shooting_timer = 0
         self.is_shooting = False
-        self.remaining_duration = 0
+        self.remaining_duration = self.shooting_duration
+        self.shooting_delay = 10
 
     def display(self, yOffset):
         fill(self.color)
@@ -599,13 +597,13 @@ class ShootingPowerUp(Entity):
             self.shooting_timer = 30
             self.remaining_duration = self.shooting_duration
             
-    def shoot(self):
+        if frameCount % self.shooting_delay == 0:
             BULLET_2.append(
                 Bullet(
                     game.mainCharacter.x + game.mainCharacter.w / 2,
                     game.mainCharacter.y + game.mainCharacter.h / 2,
-                    20,
-                    20,
+                    10,
+                    10,
                     10,
                     0,
                 )
@@ -620,9 +618,7 @@ class ShootingPowerUp(Entity):
                 self.is_shooting = False
                 self.shooting_timer = 0
                 self.remaining_duration = 0
-
-        if self.remaining_duration > 0:
-            self.shoot()
+                self.shoot()
 
     def resetPowerUp(self):
         if game.platformLayers and game.platformLayers[0]:
@@ -643,17 +639,14 @@ class ShieldPowerUp(Entity):
         self.reappear_duration = random(60 * 20, 60*30)
         self.cooldown_duration = 60 * 20  # Adjusts the cooldown duration (in frames)
         self.cooldown_timer = 0
-        self.active = False
         
     def display(self, yOffset):
         if self.timer < self.disappear_duration:
             if self.cooldown_timer == 0:
                 self.placeOnRandomPlatform()
                 self.cooldown_timer = self.cooldown_duration
-                self.active = True
             else:
                 self.cooldown_timer -= 1
-                self.active = True
             stroke(0)
             fill(255, 255, 0)
             rect(self.x, self.y + yOffset, self.w, self.h)
@@ -662,7 +655,6 @@ class ShieldPowerUp(Entity):
             if self.timer >= self.disappear_duration + self.reappear_duration:
                 self.placeOnRandomPlatform()
                 self.timer = 0
-                self.active = True
         self.timer += 1
 
         
@@ -721,8 +713,8 @@ def draw():
     shieldPowerUp.display(game.yOffset)
     game.display()
     game.update()
-
     
+
 def keyPressed():
     if key == CODED:
         if keyCode == UP:
