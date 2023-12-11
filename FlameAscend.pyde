@@ -4,7 +4,6 @@ BACKGROUND_COLOR = color(215)
 FREE_FALL_ACCELERATION = 0.4
 MAX_FALL_SPEED = 9
 MC_JUMP_SPEED = -9
-# BULLETS = []
 BULLET_2=[]
 ACTIVE_LASERS=[]
 PLATFORM_SEEDS = ["NNJGNJJNGJNN", "NJGGJNNJGGJN", "JGNJNGGNJNGJ", "NJGJGJJGJGJN", "GNNJGJJGJNNG", "JGGNJNNJNGGJ", "JGJNNGGNNJGJ"]
@@ -13,10 +12,9 @@ PLATFORM_WIDTH = 60
 START_SEEDS = ["NNNNNNNNNNNJ", "NNNJNNNNJNNN"]
 
 
+
+
 import os
-
-
-
 class Utils:
     def isLineSegmentIntersectCircle(self, segmentX1, segmentY1, segmentX2, segmentY2, centerX, centerY, radius):
         
@@ -72,6 +70,7 @@ class Game:
         # Generate the power up on the top level
         randomPlatform = self.getRandomPlatform()
         self.powerUp = ShootingPowerUp(randomPlatform, 20, 20)
+        
 
         
     def display(self):
@@ -83,10 +82,12 @@ class Game:
         for platforms in platformLayersToDisplay:
             for platform in platforms:
                 platform.display(self.yOffset)
+        shieldPowerUp.display(self.yOffset)
         self.bomb.display(self.yOffset)
         self.mainCharacter.display(self.yOffset)
         self.enemy.display(self.yOffset)
         self.powerUp.display(self.yOffset)
+        
         
         for power_up in [game.powerUp]:
             power_up.display(self.yOffset)
@@ -179,6 +180,9 @@ class Game:
             print("HAHAHA")
             self.powerUp.resetPowerUp()
             
+        if self.isCollidingRectangles(mc, shieldPowerUp):
+            shieldPowerUp.followPlayer(mc)
+            
         for laser in ACTIVE_LASERS:
             if self.isCollidingRectangleCircle(mc, laser):
                 print("Collision of Laser")
@@ -261,6 +265,18 @@ class Game:
             return True
         if utils.isLineSegmentIntersectLine(rectangleX, rectangleY + h, rectangleX + w, rectangleY + h, lineX1, lineY1, lineX2, lineY2):
             return True
+
+        return False
+    def isCollidingRectangles(self, entityRectangle1, entityRectangle2):
+        rect1X, rect1Y = entityRectangle1.x, entityRectangle1.y
+        rect1W, rect1H = entityRectangle1.w, entityRectangle1.h
+
+        rect2X, rect2Y = entityRectangle2.x, entityRectangle2.y
+        rect2W, rect2H = entityRectangle2.w, entityRectangle2.h
+
+        if rect1X < rect2X + rect2W and rect1X + rect1W > rect2X:
+            if rect1Y < rect2Y + rect2H and rect1Y + rect1H > rect2Y:
+                return True
 
         return False
     
@@ -563,7 +579,7 @@ class ShootingPowerUp(Entity):
         x = platform.x + platform.w / 2 - w / 2
         y = platform.y - h  # Adjust the y-coordinate as needed
         Entity.__init__(self, x, y, w, h)
-        self.color = color(255, 255, 0)
+        self.color = color(255, 0, 0)
         self.shooting_duration = 10
         self.shooting_timer = 0
         self.is_shooting = False
@@ -613,6 +629,64 @@ class ShootingPowerUp(Entity):
                 platform = game.platformLayers[random_layer_index][random_platform_index]
                 self.x = platform.x + platform.w / 2 - self.w / 2
                 self.y = platform.y - self.h
+game = Game(CANVAS_WIDTH, CANVAS_HEIGHT, CANVAS_HEIGHT)
+        
+class ShieldPowerUp(Entity):
+    def __init__(self, initialX, initialY, w, h):
+        Entity.__init__(self, initialX, initialY, w, h)
+        self.flyMode = False
+        self.timer = 0
+        self.disappear_duration = 60 * 20  # Adjust the duration the rectangle disappears (in frames)
+        self.reappear_duration = random(60 * 20, 60*30)
+        self.cooldown_duration = 60 * 20  # Adjusts the cooldown duration (in frames)
+        self.cooldown_timer = 0
+        
+    def display(self, yOffset):
+        if self.timer < self.disappear_duration:
+            if self.cooldown_timer == 0:
+                self.placeOnRandomPlatform()
+                self.cooldown_timer = self.cooldown_duration
+            else:
+                self.cooldown_timer -= 1
+            stroke(0)
+            fill(255, 255, 0)
+            rect(self.x, self.y + yOffset, self.w, self.h)
+        
+        else:
+            if self.timer >= self.disappear_duration + self.reappear_duration:
+                self.placeOnRandomPlatform()
+                self.timer = 0
+        self.timer += 1
+
+        
+    def placeOnRandomPlatform(self):
+        randomPlatform = game.getRandomPlatform()
+        while isinstance(randomPlatform, PressurePlatform):
+            randomPlatform = game.getRandomPlatform()
+        self.x = randomPlatform.x + randomPlatform.w / 2 - self.w / 2
+        self.y = randomPlatform.y - self.h
+
+    def isCollidingGround(self):
+        if (
+            game.mainCharacter.x < self.x + self.w
+            and game.mainCharacter.x + game.mainCharacter.w > self.x
+            and game.mainCharacter.y < self.y + self.h
+            and game.mainCharacter.y + game.mainCharacter.h > self.y
+        ):
+            # Adjust position behind the player
+            self.x = game.mainCharacter.x - self.w
+            self.y = game.mainCharacter.y
+            return True
+        return False
+    
+    def followPlayer(self, player):
+        # Update shield power-up position to follow the main character
+        self.x = game.mainCharacter.x+ (game.mainCharacter.w-self.w)//2
+        self.y = game.mainCharacter.y- game.mainCharacter.h//3
+   
+    
+shieldPowerUp = ShieldPowerUp(0, 0, 40, 40)
+    
                 
 class Laser(Entity):
     def __init__(self, initialX, initialY, targetX, targetY, w, h, speed):
@@ -631,20 +705,17 @@ class Laser(Entity):
         stroke(255, 0, 0)
         line(self.x, self.y + yOffset, self.x + cos(self.angle) * 1000, self.y + sin(self.angle) * 1000)
         
-    
-            
- 
-game = Game(CANVAS_WIDTH, CANVAS_HEIGHT, CANVAS_HEIGHT)
-
-
 def setup():
     frameRate(60)
     size(game.w, game.h)
 
 
 def draw():
+    shieldPowerUp.display(game.yOffset)
     game.display()
     game.update()
+    
+    # shieldPowerUp.update()
 
     
 
