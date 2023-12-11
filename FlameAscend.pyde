@@ -465,7 +465,7 @@ class Enemy(Entity):
 
         if self.shootTimer >= self.shootInterval:
             if self.canShootBullet:
-                # self.shoot()
+                self.shoot()
                 self.shootTimer = 0
                 self.shootInterval = int(random(50, 150))
                 self.bulletCount += 1
@@ -473,9 +473,9 @@ class Enemy(Entity):
         if 5 <= self.bulletCount <= 10:
             self.bulletCount = 0
             self.canShootBullet = False  # Disable bullet shooting
-            # self.laserVisible = True
+            self.laserVisible = True
             self.laserTimer = 0
-            # self.generateRandomLaser()
+            self.generateRandomLaser()
 
         if self.laserVisible:
             self.laserTimer += 1
@@ -547,8 +547,8 @@ class Enemy(Entity):
                 self.bulletTypes= int(random(0,3))
                 
         elif self.bulletTypes == 3:
-            pass
-            # self.generateRandomLaser()
+            # pass
+            self.generateRandomLaser()
             
     def generateRandomLaser(self):
         targetX = game.mainCharacter.x
