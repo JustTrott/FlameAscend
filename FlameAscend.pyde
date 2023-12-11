@@ -6,15 +6,19 @@ MAX_FALL_SPEED = 9
 MC_JUMP_SPEED = -9
 BULLET_2=[]
 ACTIVE_LASERS=[]
-PLATFORM_SEEDS = ["NNJGNJJNGJNN", "NJGGJNNJGGJN", "JGNJNGGNJNGJ", "NJGJGJJGJGJN", "GNNJGJJGJNNG", "JGGNJNNJNGGJ", "JGJNNGGNNJGJ"]
+PLATFORM_SEEDS = ["NNJGNJJNGJNN", "NJGGJNNJGGJN", "JGNJNGGNJNGJ", 
+                  "GNNJGJJGJNNG", "JGGNJNNJNGGJ", "JGJNNGGNNJGJ", "GGGGNJJNGGGG", 
+                  "GJNNGGGGNNJG", "NJNNGJJGNNJN", "NJNGNJJNGNJN", "GGGNJNNJNGGG",
+                  "GJNNGJJGNNJG", "NNJNNGGNNJNN", "GGJNGGGGNJGG", "NJNGGJJGGNJN",
+                  "JNGGGJJGGGNJ", "NJGGGJJGGGJN", "GGGJNNNNJGGG", "GGNJGGGGJNGG"]
 LAYER_HEIGHT = 100
 PLATFORM_WIDTH = 60
 START_SEEDS = ["NNNNNNNNNNNJ", "NNNJNNNNJNNN"]
 
 
-
-
 import os
+
+
 class Utils:
     def isLineSegmentIntersectCircle(self, segmentX1, segmentY1, segmentX2, segmentY2, centerX, centerY, radius):
         
@@ -52,7 +56,7 @@ class Game:
         self.fallAcceleration = FREE_FALL_ACCELERATION
         self.topPlatformY = groundY - 2 * LAYER_HEIGHT - PLATFORM_WIDTH * 0.5
         
-        self.mainCharacter = MainCharacter(400, self.topPlatformY - LAYER_HEIGHT - PLATFORM_WIDTH * 0.5, PLATFORM_WIDTH * 0.5, PLATFORM_WIDTH * 0.5)  # arbitrary values for now
+        self.mainCharacter = MainCharacter(400, self.topPlatformY - 64, 32, 64, "mc-idle.png", "mc-walking-right.png", 4)  # arbitrary values for now
         self.startY = self.mainCharacter.y
         self.enemy = Enemy(640, 10, 70, 70)  # arbitrary values for now
         self.mcEnemyDiff = self.enemy.y - self.mainCharacter.y
@@ -71,8 +75,6 @@ class Game:
         randomPlatform = self.getRandomPlatform()
         self.powerUp = ShootingPowerUp(randomPlatform, 20, 20)
         
-
-        
     def display(self):
         GROUND_STROKE_WIDTH = 0
         background(BACKGROUND_COLOR)
@@ -87,7 +89,6 @@ class Game:
         self.mainCharacter.display(self.yOffset)
         self.enemy.display(self.yOffset)
         self.powerUp.display(self.yOffset)
-        
         
         for power_up in [game.powerUp]:
             power_up.display(self.yOffset)
@@ -119,11 +120,11 @@ class Game:
         self.enemy.update()
         if self.isBombExploding:
             if self.changingFrame == None:
-                self.changingFrame = frameCount % 30
-            if frameCount % 30 == self.changingFrame:
+                self.changingFrame = frameCount % 20
+            if frameCount % 20 == self.changingFrame:
                 self.flickerCount += 1
                 self.isLowestLayerVisible = not self.isLowestLayerVisible
-            if self.flickerCount == 6:
+            if self.flickerCount == 9:
                 self.destroyLowestLayer()
                 self.addNewLayer()
                 self.isBombExploding = False
@@ -145,11 +146,8 @@ class Game:
                             platforms[i] = PressurePlatform(platforms[i].x, platforms[i].y, platforms[i].w, platforms[i].h)
                 self.bomb = self.generateBomb()
                 
-        
         for power_up in [game.powerUp]:
             power_up.update()
-   
-                
 
     def detectCollisions(self):
         mc = self.mainCharacter
@@ -317,8 +315,8 @@ class Game:
     
 
     def getRandomPlatform(self):
-        random_layer_index = int(random(1, len(self.platformLayers) - 1))
-        random_platform_index = int(random(1, len(self.platformLayers[random_layer_index]) - 1))
+        random_layer_index = int(random(0, len(self.platformLayers)))
+        random_platform_index = int(random(0, len(self.platformLayers[random_layer_index])))
         return self.platformLayers[random_layer_index][random_platform_index]
     
     def triggerBombExplosion(self):
@@ -326,17 +324,24 @@ class Game:
         
     
 class Entity:
-    def __init__(self, initialX, initialY, w, h):
+    def __init__(self, initialX, initialY, w, h, imgName=None):
         self.x = initialX
         self.y = initialY
         self.w = w
         self.h = h
         self.velocityX = 0
         self.velocityY = 0
+        if imgName is None:
+            self.img = None
+        else:
+            self.img = loadImage(os.getcwd() + "/images/" + imgName)
 
     def display(self, yOffset):
         fill(255, 255, 255)
-        rect(self.x, self.y + yOffset, self.w, self.h)
+        if self.img is None:
+            rect(self.x, self.y + yOffset, self.w, self.h)
+        if self.img is not None:
+            image(self.img, self.x, self.y + yOffset, self.w, self.h)
         
     def __str__(self):
         return self.__class__.__name__ + " at " + str(self.x) + " " + str(self.y)
@@ -381,10 +386,14 @@ class PressurePlatform(Platform):
 
 
 class MainCharacter(Entity):
-    def __init__(self, initialX, initialY, w, h):
+    def __init__(self, initialX, initialY, w, h, imgIdleName, imgWalkingName, totalFrames):
         Entity.__init__(self, initialX, initialY, w, h)
         self.keyHandler = {LEFT: False, RIGHT: False, UP: False, DOWN: False}
         self.flyMode = False
+        self.imgIdle = loadImage(os.getcwd() + "/images/" + imgIdleName)
+        self.imgWalking = loadImage(os.getcwd() + "/images/" + imgWalkingName)
+        self.frame = 0
+        self.totalFrames = totalFrames
 
     def applyKeyPresses(self):
         deltaX = 0
@@ -401,10 +410,20 @@ class MainCharacter(Entity):
                 self.y += 5
             return
         if self.keyHandler[RIGHT]:
-            deltaX += 6
+            deltaX += 5
         if self.keyHandler[LEFT]:
-            deltaX -= 6
+            deltaX -= 5
         self.velocityX = deltaX
+
+    def display(self, yOffset):
+        if self.velocityX > 0:
+            image(self.imgWalking, self.x, self.y + yOffset, self.w, self.h, int(self.frame) * self.w, 0, (int(self.frame) + 1) * self.w, self.h)
+            self.frame = (self.frame + 0.15) % self.totalFrames
+        elif self.velocityX < 0:
+            image(self.imgWalking, self.x, self.y + yOffset, self.w, self.h, (int(self.frame) + 1) * self.w, 0, int(self.frame) * self.w, self.h)
+            self.frame = (self.frame + 0.15) % self.totalFrames
+        else:
+            image(self.imgIdle, self.x, self.y + yOffset, self.w, self.h)
 
     def isCollidingGround(self):
         if self.y + self.h >= game.groundY:
