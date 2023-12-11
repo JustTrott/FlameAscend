@@ -157,8 +157,11 @@ class Game:
         
         for bullet in self.enemy.bullets:
             self.applyMovement(bullet)
-            if self.isCollidingRectangleCircle(mc, bullet):
-                print("Collision of " + str(mc) + " and " + str(bullet))
+            if shieldPowerUp.active== True:
+                pass
+            elif shieldPowerUp.active== False:
+                if self.isCollidingRectangleCircle(mc, bullet):
+                    print("Collision of sertual" + str(mc) + " and " + str(bullet))
 
         if self.bomb.owner == mc:
             for platform in currentPlatforms:
@@ -640,14 +643,17 @@ class ShieldPowerUp(Entity):
         self.reappear_duration = random(60 * 20, 60*30)
         self.cooldown_duration = 60 * 20  # Adjusts the cooldown duration (in frames)
         self.cooldown_timer = 0
+        self.active = False
         
     def display(self, yOffset):
         if self.timer < self.disappear_duration:
             if self.cooldown_timer == 0:
                 self.placeOnRandomPlatform()
                 self.cooldown_timer = self.cooldown_duration
+                self.active = True
             else:
                 self.cooldown_timer -= 1
+                self.active = True
             stroke(0)
             fill(255, 255, 0)
             rect(self.x, self.y + yOffset, self.w, self.h)
@@ -656,6 +662,7 @@ class ShieldPowerUp(Entity):
             if self.timer >= self.disappear_duration + self.reappear_duration:
                 self.placeOnRandomPlatform()
                 self.timer = 0
+                self.active = True
         self.timer += 1
 
         
@@ -714,12 +721,8 @@ def draw():
     shieldPowerUp.display(game.yOffset)
     game.display()
     game.update()
-    
-    # shieldPowerUp.update()
 
     
-
-
 def keyPressed():
     if key == CODED:
         if keyCode == UP:
