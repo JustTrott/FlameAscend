@@ -39,7 +39,7 @@ class StartPage:
         self.continue_image = loadImage(os.getcwd() + "/images/Continue.png")
 
     def display(self):
-        image(self.background_image, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
+        background(self.background_image)
         
         image(self.text_image, 320, 150, CANVAS_WIDTH // 2, CANVAS_HEIGHT // 4)
         
@@ -81,7 +81,7 @@ class EndPage:
         self.start_image = loadImage(os.getcwd() + "/images/Start-Game.png")
 
     def display(self):
-        image(self.background_image, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
+        background(self.background_image)
         image(self.text_image, 320, 150, CANVAS_WIDTH // 2, CANVAS_HEIGHT // 4)
         
         
