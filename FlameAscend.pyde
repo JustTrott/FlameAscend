@@ -78,7 +78,7 @@ class EndPage:
         self.restart_button_y = 450  # Adjust the y-coordinate as needed
         self.background_image = loadImage(os.getcwd() + "/images/background.jpg")
         self.text_image = loadImage(os.getcwd() + "/images/FLAME-ASCEND.png")
-        self.start_image = loadImage(os.getcwd() + "/images/Start-Game.png")
+        self.start_image = loadImage(os.getcwd() + "/images/Restart-Game.png")
 
     def display(self):
         background(self.background_image)
