@@ -2,6 +2,7 @@ CANVAS_WIDTH = 1280
 CANVAS_HEIGHT = 800
 START_SCREEN = 0
 GAME_SCREEN = 1
+END_SCREEN=2
 current_screen = START_SCREEN 
 BACKGROUND_COLOR = color(39, 100, 167)
 FREE_FALL_ACCELERATION = 0.4
@@ -32,26 +33,29 @@ class StartPage:
 
         self.continue_button_x = (CANVAS_WIDTH - self.button_width) // 2
         self.continue_button_y = 550  # Adjust the y-coordinate as needed
+        self.background_image = loadImage(os.getcwd() + "/images/background.jpg")
+        self.text_image = loadImage(os.getcwd() + "/images/FLAME-ASCEND.png")
+        self.start_image = loadImage(os.getcwd() + "/images/Start-Game.png")
+        self.continue_image = loadImage(os.getcwd() + "/images/Continue.png")
 
     def display(self):
-        background_image = loadImage(os.getcwd() + "/images/background.jpg")
-        image(background_image, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
-        text_image = loadImage(os.getcwd() + "/images/FLAME-ASCEND.png")
-        image(text_image, 320, 150, CANVAS_WIDTH // 2, CANVAS_HEIGHT // 4)
+        image(self.background_image, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
         
-        start_image = loadImage(os.getcwd() + "/images/Start-Game.png")
+        image(self.text_image, 320, 150, CANVAS_WIDTH // 2, CANVAS_HEIGHT // 4)
+        
+        
         start_image_width = CANVAS_WIDTH // 5
         start_image_height = CANVAS_HEIGHT // 15
         start_image_x = (CANVAS_WIDTH - start_image_width) // 2
         start_image_y = 450  # Adjust the y-coordinate as needed
-        image(start_image, start_image_x, start_image_y, start_image_width, start_image_height)
+        image(self.start_image, start_image_x, start_image_y, start_image_width, start_image_height)
         
-        continue_image = loadImage(os.getcwd() + "/images/Continue.png")
+        
         continue_image_width = CANVAS_WIDTH // 5
         continue_image_height = CANVAS_HEIGHT // 15
         continue_image_x = (CANVAS_WIDTH - continue_image_width) // 2
         continue_image_y = 550  # Adjust the y-coordinate as needed
-        image(continue_image, continue_image_x, continue_image_y, continue_image_width, continue_image_height)
+        image(self.continue_image, continue_image_x, continue_image_y, continue_image_width, continue_image_height)
     
 
     def isStartButtonClicked(self, mouseX, mouseY):
@@ -64,6 +68,33 @@ class StartPage:
         return (
             self.continue_button_x < mouseX < self.continue_button_x + self.button_width
             and self.continue_button_y < mouseY < self.continue_button_y + self.button_height
+        )
+class EndPage:
+    def __init__(self):
+        self.button_width = CANVAS_WIDTH // 5
+        self.button_height = CANVAS_HEIGHT // 15
+
+        self.restart_button_x = (CANVAS_WIDTH - self.button_width) // 2
+        self.restart_button_y = 450  # Adjust the y-coordinate as needed
+        self.background_image = loadImage(os.getcwd() + "/images/background.jpg")
+        self.text_image = loadImage(os.getcwd() + "/images/FLAME-ASCEND.png")
+        self.start_image = loadImage(os.getcwd() + "/images/Start-Game.png")
+
+    def display(self):
+        image(self.background_image, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
+        image(self.text_image, 320, 150, CANVAS_WIDTH // 2, CANVAS_HEIGHT // 4)
+        
+        
+        start_image_width = CANVAS_WIDTH // 5
+        start_image_height = CANVAS_HEIGHT // 15
+        start_image_x = (CANVAS_WIDTH - start_image_width) // 2
+        start_image_y = 450  # Adjust the y-coordinate as needed
+        image(self.start_image, start_image_x, start_image_y, start_image_width, start_image_height)
+        
+    def isReStartButtonClicked(self, mouseX, mouseY):
+        return (
+            self.restart_button_x < mouseX < self.restart_button_x + self.button_width
+            and self.restart_button_y < mouseY < self.restart_button_y + self.button_height
         )
 
 class Utils:
@@ -119,6 +150,7 @@ class Game:
         self.yOffset = 0
         self.background = loadImage(os.getcwd() + "/images/background.jpg")
         self.start_page = StartPage()
+        self.end_page = EndPage()
         
         # Generate the power up on the top level
         randomPlatform = self.getRandomPlatform()
@@ -159,8 +191,13 @@ class Game:
             if self.start_page.isStartButtonClicked(mouseX, mouseY):
                 current_screen = GAME_SCREEN  # Switch to the game screen
             elif self.start_page.isContinueButtonClicked(mouseX, mouseY):
-                # Add logic for continuing the game if needed
                 pass
+                
+        if current_screen == END_SCREEN:
+            if self.end_page.isReStartButtonClicked(mouseX, mouseY):
+                current_screen = GAME_SCREEN  # Switch to the game screen
+            
+            
     
     def update(self):
         # future rising lava
@@ -218,6 +255,9 @@ class Game:
             self.applyMovement(bullet)
             if self.isCollidingRectangleCircle(mc, bullet):
                 print("Collision of " + str(mc) + " and " + str(bullet))
+                self.end_page.display()
+                current_screen = END_SCREEN
+                noLoop()
 
         if self.bomb.owner == mc:
             for platform in currentPlatforms:
@@ -232,6 +272,9 @@ class Game:
                                                                                     
         if mc.isCollidingGround():
             print("Collision of " + str(mc) + " and ground")
+            self.end_page.display()
+            current_screen = END_SCREEN
+            noLoop()
 
         if self.isCollidingRectangleCircle(mc, self.powerUp):
             self.powerUp.shoot()
@@ -249,6 +292,9 @@ class Game:
         for laser in ACTIVE_LASERS:
             if self.isCollidingRectangleCircle(mc, laser):
                 print("Collision of Laser")
+                self.end_page.display()
+                current_screen = END_SCREEN
+                noLoop()
             
         for platform in currentPlatforms:
             if isinstance(platform, JumpPlatform):
@@ -298,7 +344,7 @@ class Game:
                 entity.velocityY += fallAcceleration
         elif entity.velocityY > 0:
             entity.velocityY = 0
-        return
+        return 
         
     def isCollidingRectangleCircle(self, entityRectangle, entityCircle):
         rectangleX, rectangleY = entityRectangle.x, entityRectangle.y
@@ -566,7 +612,7 @@ class Enemy(Entity):
         # print("sera")
         
         
-        if 700< self.hp <= 1000:
+        if 700< self.hp <= 900:
             for i in range(numBulletsPerShot):
                 yOffset = i * verticaDistanceBetweenbullets
                 dx = targetX - (self.x )
@@ -830,9 +876,15 @@ def mouseClicked():
             current_screen = GAME_SCREEN  # Switch to the game screen
         elif game.start_page.isContinueButtonClicked(mouseX, mouseY):
             current_screen = GAME_SCREEN  # Switch to the game screen
-            loop()  
+            loop()
+
     elif current_screen == GAME_SCREEN:
         game.mouseClicked()
+
+    elif current_screen == END_SCREEN:
+        if game.end_page.isReStartButtonClicked(mouseX, mouseY):
+            current_screen = START_SCREEN  # Switch to the start screen
+            loop()  # Resume the draw loop
 
     
 def keyPressed():
@@ -859,16 +911,6 @@ def keyPressed():
             current_screen = START_SCREEN
             game.start_page.display()
             noLoop()
-    # elif key == 'a':
-    #     if current_screen == START_SCREEN:
-    #         current_screen = GAME_SCREEN
-    #         loop()
-    
-    # if current_screen == GAME_SCREEN:
-    #     if game.start_page.isButtonClicked(mouseX, mouseY):
-    #         current_screen = START_SCREEN  # Switch to the start screen
-    #         game.start_page.display()
-    #         noLoop()
     if key == 'f':
         game.mainCharacter.flyMode = not game.mainCharacter.flyMode
         
