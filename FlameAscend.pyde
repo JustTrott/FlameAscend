@@ -1,5 +1,8 @@
 CANVAS_WIDTH = 1280
 CANVAS_HEIGHT = 800
+START_SCREEN = 0
+GAME_SCREEN = 1
+current_screen = START_SCREEN 
 BACKGROUND_COLOR = color(39, 100, 167)
 FREE_FALL_ACCELERATION = 0.4
 MAX_FALL_SPEED = 9
@@ -19,6 +22,49 @@ START_SEEDS = ["NNNNNNNNNNNJ", "NNNJNNNNJNNN"]
 
 import os
 
+class StartPage:
+    def __init__(self):
+        self.button_width = CANVAS_WIDTH // 5
+        self.button_height = CANVAS_HEIGHT // 15
+
+        self.start_button_x = (CANVAS_WIDTH - self.button_width) // 2
+        self.start_button_y = 450  # Adjust the y-coordinate as needed
+
+        self.continue_button_x = (CANVAS_WIDTH - self.button_width) // 2
+        self.continue_button_y = 550  # Adjust the y-coordinate as needed
+
+    def display(self):
+        background_image = loadImage(os.getcwd() + "/images/background.jpg")
+        image(background_image, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
+        text_image = loadImage(os.getcwd() + "/images/FLAME-ASCEND.png")
+        image(text_image, 320, 150, CANVAS_WIDTH // 2, CANVAS_HEIGHT // 4)
+        
+        start_image = loadImage(os.getcwd() + "/images/Start-Game.png")
+        start_image_width = CANVAS_WIDTH // 5
+        start_image_height = CANVAS_HEIGHT // 15
+        start_image_x = (CANVAS_WIDTH - start_image_width) // 2
+        start_image_y = 450  # Adjust the y-coordinate as needed
+        image(start_image, start_image_x, start_image_y, start_image_width, start_image_height)
+        
+        continue_image = loadImage(os.getcwd() + "/images/Continue.png")
+        continue_image_width = CANVAS_WIDTH // 5
+        continue_image_height = CANVAS_HEIGHT // 15
+        continue_image_x = (CANVAS_WIDTH - continue_image_width) // 2
+        continue_image_y = 550  # Adjust the y-coordinate as needed
+        image(continue_image, continue_image_x, continue_image_y, continue_image_width, continue_image_height)
+    
+
+    def isStartButtonClicked(self, mouseX, mouseY):
+        return (
+            self.start_button_x < mouseX < self.start_button_x + self.button_width
+            and self.start_button_y < mouseY < self.start_button_y + self.button_height
+        )
+
+    def isContinueButtonClicked(self, mouseX, mouseY):
+        return (
+            self.continue_button_x < mouseX < self.continue_button_x + self.button_width
+            and self.continue_button_y < mouseY < self.continue_button_y + self.button_height
+        )
 
 class Utils:
     def isLineSegmentIntersectCircle(self, segmentX1, segmentY1, segmentX2, segmentY2, centerX, centerY, radius):
@@ -72,37 +118,49 @@ class Game:
         self.isLowestLayerVisible = True
         self.yOffset = 0
         self.background = loadImage(os.getcwd() + "/images/background.jpg")
+        self.start_page = StartPage()
         
         # Generate the power up on the top level
         randomPlatform = self.getRandomPlatform()
         self.powerUp = ShootingPowerUp(randomPlatform, 20, 20)
         
     def display(self):
-        GROUND_STROKE_WIDTH = 0
-        background(self.background)
-        stroke(GROUND_STROKE_WIDTH)
-        line(0, self.groundY + self.yOffset, self.w, self.groundY + self.yOffset)
-        platformLayersToDisplay = self.platformLayers if self.isLowestLayerVisible else self.platformLayers[1:]
-        for platforms in platformLayersToDisplay:
-            for platform in platforms:
-                platform.display(self.yOffset)
-        shieldPowerUp.display(self.yOffset)
-        self.bomb.display(self.yOffset)
-        self.mainCharacter.display(self.yOffset)
-        self.enemy.display(self.yOffset)
-        self.powerUp.display(self.yOffset)
-        
-        for power_up in [game.powerUp]:
-            power_up.display(self.yOffset)
-        
-        for bullet in BULLET_2:
-            bullet.display(self.yOffset)
-            bullet.update()
+        if current_screen == START_SCREEN:
+            self.start_page.display()
+        elif current_screen == GAME_SCREEN:
+            GROUND_STROKE_WIDTH = 0
+            background(self.background)
+            stroke(GROUND_STROKE_WIDTH)
+            line(0, self.groundY + self.yOffset, self.w, self.groundY + self.yOffset)
+            platformLayersToDisplay = self.platformLayers if self.isLowestLayerVisible else self.platformLayers[1:]
+            for platforms in platformLayersToDisplay:
+                for platform in platforms:
+                    platform.display(self.yOffset)
+            shieldPowerUp.display(self.yOffset)
+            self.bomb.display(self.yOffset)
+            self.mainCharacter.display(self.yOffset)
+            self.enemy.display(self.yOffset)
+            self.powerUp.display(self.yOffset)
             
-        for laser in ACTIVE_LASERS:
-            laser.display(self.yOffset)
-            laser.update()
+            for power_up in [game.powerUp]:
+                power_up.display(self.yOffset)
             
+            for bullet in BULLET_2:
+                bullet.display(self.yOffset)
+                bullet.update()
+                
+            for laser in ACTIVE_LASERS:
+                laser.display(self.yOffset)
+                laser.update()
+            
+    def mouseClicked(self):
+        global current_screen  # Declare current_screen as global
+        if current_screen == START_SCREEN:
+            if self.start_page.isStartButtonClicked(mouseX, mouseY):
+                current_screen = GAME_SCREEN  # Switch to the game screen
+            elif self.start_page.isContinueButtonClicked(mouseX, mouseY):
+                # Add logic for continuing the game if needed
+                pass
     
     def update(self):
         # future rising lava
@@ -765,8 +823,20 @@ def draw():
     game.display()
     game.update()
     
+def mouseClicked():
+    global current_screen
+    if current_screen == START_SCREEN:
+        if game.start_page.isStartButtonClicked(mouseX, mouseY):
+            current_screen = GAME_SCREEN  # Switch to the game screen
+        elif game.start_page.isContinueButtonClicked(mouseX, mouseY):
+            current_screen = GAME_SCREEN  # Switch to the game screen
+            loop()  
+    elif current_screen == GAME_SCREEN:
+        game.mouseClicked()
 
+    
 def keyPressed():
+    global current_screen
     if key == CODED:
         if keyCode == UP:
             game.mainCharacter.keyHandler[UP] = True
@@ -785,7 +855,20 @@ def keyPressed():
     if key == 'l':
         loop()
     if key == 'p':
-        noLoop()
+        if current_screen == GAME_SCREEN:
+            current_screen = START_SCREEN
+            game.start_page.display()
+            noLoop()
+    # elif key == 'a':
+    #     if current_screen == START_SCREEN:
+    #         current_screen = GAME_SCREEN
+    #         loop()
+    
+    # if current_screen == GAME_SCREEN:
+    #     if game.start_page.isButtonClicked(mouseX, mouseY):
+    #         current_screen = START_SCREEN  # Switch to the start screen
+    #         game.start_page.display()
+    #         noLoop()
     if key == 'f':
         game.mainCharacter.flyMode = not game.mainCharacter.flyMode
         
