@@ -244,14 +244,13 @@ class Game:
         ec= self.enemy #Enemy Character
         currentPlatforms = self.getCurrentPlatforms(mc)
         
-        if not mc.isShieldUp:
-            for bullet in self.enemy.bullets:
-                self.applyMovement(bullet)
-                if self.isCollidingRectangleCircle(mc, bullet):
-                    print("Collision of " + str(mc) + " and " + str(bullet))
-                    self.end_page.display()
-                    current_screen = END_SCREEN
-                    noLoop()
+        for bullet in self.enemy.bullets:
+            self.applyMovement(bullet) 
+            if not mc.isShieldUp and self.isCollidingRectangleCircle(mc, bullet):
+                print("Collision of " + str(mc) + " and " + str(bullet))
+                self.end_page.display()
+                current_screen = END_SCREEN
+                noLoop()
 
         if self.bomb.grabbedBy == mc:
             for platform in currentPlatforms:
@@ -608,7 +607,7 @@ class MainCharacter(Entity):
             bullet.update()
         if self.isShieldUp:
             self.shieldTimer += 1
-            if self.shieldDuration == shieldTimer:
+            if self.shieldDuration == self.shieldTimer:
                 self.isShieldUp = False
                 self.shieldTimer = 0
 
@@ -846,7 +845,6 @@ def mouseClicked():
         if game.end_page.isReStartButtonClicked(mouseX, mouseY):
             current_screen = GAME_SCREEN  # Switch to the start screen
             loop()  # Resume the draw loop
-    print(current_screen)
 
     
 def keyPressed():
