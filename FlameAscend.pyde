@@ -8,8 +8,8 @@ BACKGROUND_COLOR = color(39, 100, 167)
 FREE_FALL_ACCELERATION = 0.4
 MAX_FALL_SPEED = 9
 MC_JUMP_SPEED = -9.5
-BULLET_2=[]
-ACTIVE_LASERS=[]
+# BULLET_2=[]
+# ACTIVE_LASERS=[]
 PLATFORM_SEEDS = ["NNJGNJJNGJNN", "NJGGJNNJGGJN", "JGNJNGGNJNGJ", 
                   "GNNJGJJGJNNG", "JGGNJNNJNGGJ", "JGJNNGGNNJGJ", "GGGGNJJNGGGG", 
                   "GJNNGGGGNNJG", "NJNNGJJGNNJN", "NJNGNJJNGNJN", "GGGNJNNJNGGG",
@@ -18,11 +18,11 @@ PLATFORM_SEEDS = ["NNJGNJJNGJNN", "NJGGJNNJGGJN", "JGNJNGGNJNGJ",
 LAYER_HEIGHT = 100
 PLATFORM_WIDTH = 64
 PLATFORM_HEIGHT = 16
-START_SEEDS = ["NNNNNNNNNNNJ", "NNNJNNNNJNNN"]
+START_SEEDS = ["NNNNNNNNNNNJ", "NNNJNNNNJNNN", "GJNNGGGGNNJG", "GGGJNNNNJGGG"]
 
 
 import os
-
+from random import randint, choice
 class StartPage:
     def __init__(self):
         self.button_width = CANVAS_WIDTH // 5
@@ -134,13 +134,13 @@ class Game:
         self.fallAcceleration = FREE_FALL_ACCELERATION
         self.topPlatformY = groundY - 3 * LAYER_HEIGHT - PLATFORM_WIDTH * 0.5
         
-        self.mainCharacter = MainCharacter(400, self.topPlatformY - 64, 32, 64, "mc-idle.png", "mc-walking-right.png", 4)  # arbitrary values for now
+        self.mainCharacter = MainCharacter(400, self.topPlatformY - 64, 32, 64, "mc-idle.png", "mc-walking-right.png", 4, "shield-active.png", 10)  # arbitrary values for now
         self.startY = self.mainCharacter.y
         self.enemy = Enemy(CANVAS_WIDTH / 2 - 64, 10, 128, 113, "enemy.png")  # arbitrary values for now
         self.mcEnemyDiff = self.enemy.y - self.mainCharacter.y
         
         self.platformLayers = []
-        self.generatePlatforms()
+        self.generateStartPlatforms()
         self.platformLayers[0][-2] = PressurePlatform(self.platformLayers[0][-2].x, self.platformLayers[0][-2].y, self.platformLayers[0][-2].w, self.platformLayers[0][-2].h, "platform.png")
         self.bomb = Bomb(self.platformLayers[0][5], 32, 32, "bomb.png")
         self.isBombExploding = False
@@ -151,10 +151,10 @@ class Game:
         self.background = loadImage(os.getcwd() + "/images/background.jpg")
         self.start_page = StartPage()
         self.end_page = EndPage()
-        
-        # Generate the power up on the top level
-        randomPlatform = self.getRandomPlatform()
-        self.powerUp = ShootingPowerUp(randomPlatform, 20, 20)
+
+        self.shieldPowerUps = []
+        self.shootingPowerUps = []
+        # self.shootingPowerUps.append(PowerUp(self.platformLayers[1][0], 32, 32))
         
     def display(self):
         if current_screen == START_SCREEN:
@@ -168,22 +168,14 @@ class Game:
             for platforms in platformLayersToDisplay:
                 for platform in platforms:
                     platform.display(self.yOffset)
-            shieldPowerUp.display(self.yOffset)
             self.bomb.display(self.yOffset)
             self.mainCharacter.display(self.yOffset)
             self.enemy.display(self.yOffset)
-            self.powerUp.display(self.yOffset)
             
-            for power_up in [game.powerUp]:
-                power_up.display(self.yOffset)
-            
-            for bullet in BULLET_2:
-                bullet.display(self.yOffset)
-                bullet.update()
-                
-            for laser in ACTIVE_LASERS:
-                laser.display(self.yOffset)
-                laser.update()
+            for shieldPowerUp in self.shieldPowerUps:
+                shieldPowerUp.display(self.yOffset)
+            for shootingPowerUp in self.shootingPowerUps:
+                shootingPowerUp.display(self.yOffset)
             
     def mouseClicked(self):
         global current_screen  # Declare current_screen as global
@@ -197,8 +189,6 @@ class Game:
             if self.end_page.isReStartButtonClicked(mouseX, mouseY):
                 current_screen = GAME_SCREEN  # Switch to the game screen
             
-            
-    
     def update(self):
         # future rising lava
         # self.groundY -= 1
@@ -206,7 +196,7 @@ class Game:
         self.yOffset = self.startY - mc.y
         currentGroundY = self.getHighestPlatformY(mc)
         self.detectCollisions()
-         
+        
         self.enemy.y = self.mcEnemyDiff + self.mainCharacter.y
         mc.applyKeyPresses()
         if not mc.flyMode:
@@ -214,7 +204,7 @@ class Game:
             self.applyGravity(mc, self.fallAcceleration)
         if mc.keyHandler[DOWN] and mc.y + mc.h == currentGroundY and not self.isOnLowestLayer(mc) and mc.velocityY == 0:
             mc.velocityY += self.fallAcceleration
-        self.enemy.update()
+        self.enemy.update(mc)
         if self.isBombExploding:
             if self.changingFrame == None:
                 self.changingFrame = frameCount % 20
@@ -242,33 +232,37 @@ class Game:
                         if platforms[i] == newPressurePlatform:
                             platforms[i] = PressurePlatform(platforms[i].x, platforms[i].y, platforms[i].w, platforms[i].h, "platform.png")
                 self.bomb = self.generateBomb()
-                
-        for power_up in [game.powerUp]:
-            power_up.update()
+                self.enemy.score(100)
+        self.bomb.update()
+        mc.update()
+        self.cleanUp()
 
     def detectCollisions(self):
+        
+        global current_screen  # Declare current_screen as global
         mc = self.mainCharacter
         ec= self.enemy #Enemy Character
         currentPlatforms = self.getCurrentPlatforms(mc)
         
-        for bullet in self.enemy.bullets:
-            self.applyMovement(bullet)
-            if self.isCollidingRectangleCircle(mc, bullet):
-                print("Collision of " + str(mc) + " and " + str(bullet))
-                self.end_page.display()
-                current_screen = END_SCREEN
-                noLoop()
+        if not mc.isShieldUp:
+            for bullet in self.enemy.bullets:
+                self.applyMovement(bullet)
+                if self.isCollidingRectangleCircle(mc, bullet):
+                    print("Collision of " + str(mc) + " and " + str(bullet))
+                    self.end_page.display()
+                    current_screen = END_SCREEN
+                    noLoop()
 
-        if self.bomb.owner == mc:
+        if self.bomb.grabbedBy == mc:
             for platform in currentPlatforms:
                 if isinstance(platform, PressurePlatform):
-                    self.bomb.owner = platform
+                    self.bomb.grab(platform)
                     platform.isPressed = True
                     self.triggerBombExplosion()
                     break
                 
-        if self.bomb.owner != mc and not isinstance(self.bomb.owner, PressurePlatform) and self.isCollidingRectangleCircle(mc, self.bomb):
-            self.bomb.owner = mc
+        if self.bomb.grabbedBy != mc and not isinstance(self.bomb.grabbedBy, PressurePlatform) and self.isCollidingRectangles(mc, self.bomb):
+            self.bomb.grab(mc)
                                                                                     
         if mc.isCollidingGround():
             print("Collision of " + str(mc) + " and ground")
@@ -276,25 +270,33 @@ class Game:
             current_screen = END_SCREEN
             noLoop()
 
-        if self.isCollidingRectangleCircle(mc, self.powerUp):
-            self.powerUp.shoot()
-            self.powerUp.update()
-            print("HAHAHA")
-            self.powerUp.resetPowerUp()
-            
-        for bullet in BULLET_2:
+        for shieldPowerUp in self.shieldPowerUps:
+            if self.isCollidingRectangleCircle(mc, shieldPowerUp):
+                self.shieldPowerUps.remove(shieldPowerUp)
+                mc.isShieldUp = True
+                break
+        
+        for shootingPowerUp in self.shootingPowerUps:
+            if self.isCollidingRectangleCircle(mc, shootingPowerUp):
+                self.shootingPowerUps.remove(shootingPowerUp)
+                mc.startShooting()
+                break
+        
+        for bullet in self.mainCharacter.bullets:
             if self.isCollidingRectangleCircle(ec, bullet):
-                ec.score()
+                ec.score(10)
+                self.mainCharacter.bullets.remove(bullet)
             
-        if self.isCollidingRectangles(mc, shieldPowerUp):
-            shieldPowerUp.followPlayer(mc)
+        # if self.isCollidingRectangles(mc, shieldPowerUp):
+        #     shieldPowerUp.followPlayer(mc)
             
-        for laser in ACTIVE_LASERS:
-            if self.isCollidingRectangleCircle(mc, laser):
-                print("Collision of Laser")
-                self.end_page.display()
-                current_screen = END_SCREEN
-                noLoop()
+        if not mc.isShieldUp:
+            for laser in self.enemy.lasers:
+                if self.isCollidingRectangleCircle(mc, laser):
+                    print("Collision of" + str(mc) + " and " + str(laser))
+                    self.end_page.display()
+                    current_screen = END_SCREEN
+                    noLoop()
             
         for platform in currentPlatforms:
             if isinstance(platform, JumpPlatform):
@@ -376,6 +378,7 @@ class Game:
             return True
 
         return False
+
     def isCollidingRectangles(self, entityRectangle1, entityRectangle2):
         rect1X, rect1Y = entityRectangle1.x, entityRectangle1.y
         rect1W, rect1H = entityRectangle1.w, entityRectangle1.h
@@ -389,24 +392,21 @@ class Game:
 
         return False
     
-    def generatePlatforms(self):
+    def generateStartPlatforms(self):
         for seed in START_SEEDS:
             self.platformLayers.append(self.generatePlatformLayer(seed, self.topPlatformY))
             self.topPlatformY -= LAYER_HEIGHT
-        for i in range(2):
-            random_seed = PLATFORM_SEEDS[int(random(0, len(PLATFORM_SEEDS)))]
-            self.platformLayers.append(self.generatePlatformLayer(random_seed, self.topPlatformY))
-            self.topPlatformY -= LAYER_HEIGHT
-    
+        
     def generatePlatformLayer(self, seed, y):
         platforms = []
+        margin = (CANVAS_WIDTH - len(seed) * PLATFORM_WIDTH) / 2
         for i, platform_type in enumerate(seed):
             if platform_type == 'G':
                 continue
             elif platform_type == 'N':
-                platforms.append(Platform(256 + (i * PLATFORM_WIDTH), y, PLATFORM_WIDTH, PLATFORM_HEIGHT, "platform.png"))
+                platforms.append(Platform(margin + (i * PLATFORM_WIDTH), y, PLATFORM_WIDTH, PLATFORM_HEIGHT, "platform.png"))
             else:
-                platforms.append(JumpPlatform(256 + (i * PLATFORM_WIDTH), y, PLATFORM_WIDTH, PLATFORM_HEIGHT, "jump_platform.png", MC_JUMP_SPEED))
+                platforms.append(JumpPlatform(margin + (i * PLATFORM_WIDTH), y, PLATFORM_WIDTH, PLATFORM_HEIGHT, "jump_platform.png", MC_JUMP_SPEED))
         return platforms
     
     def generateBomb(self):
@@ -417,20 +417,43 @@ class Game:
     
     def addNewLayer(self):
         random_seed = PLATFORM_SEEDS[int(random(0, len(PLATFORM_SEEDS)))]
-        self.platformLayers.append(self.generatePlatformLayer(random_seed, self.topPlatformY))
+        newLayer = self.generatePlatformLayer(random_seed, self.topPlatformY)
+        self.platformLayers.append(newLayer)
         self.topPlatformY -= LAYER_HEIGHT
+        # with a 25% chance, add a shield power up or a shoot power up (50% chance each)
+        if random(0, 1) < 1:
+            if random(0, 1) < 0.5:
+                self.shieldPowerUps.append(PowerUp(choice(newLayer), 32, 32, "shield-inactive.png"))
+            else:
+                self.shootingPowerUps.append(PowerUp(choice(newLayer), 32, 32))
         
     def destroyLowestLayer(self):
+        for powerUp in self.shieldPowerUps:
+            if powerUp.grabbedBy in self.platformLayers[0]:
+                self.shieldPowerUps.remove(powerUp)
+        for powerUp in self.shootingPowerUps:
+            if powerUp.grabbedBy in self.platformLayers[0]:
+                self.shootingPowerUps.remove(powerUp)
         del self.platformLayers[0]
 
     def getRandomPlatform(self):
-        random_layer_index = int(random(0, len(self.platformLayers)))
-        random_platform_index = int(random(0, len(self.platformLayers[random_layer_index])))
-        return self.platformLayers[random_layer_index][random_platform_index]
-    
+        randomLayer = choice(self.platformLayers)
+        randomPlatform = choice(randomLayer)
+        return randomPlatform 
+
     def triggerBombExplosion(self):
         self.isBombExploding = True
         
+    def isOffScreen(self, entity):
+        # take self.yOffset into account
+        return entity.y + entity.h + self.yOffset < 0 or entity.y + self.yOffset > self.h or entity.x + entity.w < 0 or entity.x > self.w
+
+    def cleanUp(self):
+        self.mainCharacter.bullets = [bullet for bullet in self.mainCharacter.bullets if not self.isOffScreen(bullet)]
+        self.enemy.bullets = [bullet for bullet in self.enemy.bullets if not self.isOffScreen(bullet)]
+        # self.enemy.lasers = [laser for laser in self.enemy.lasers if not self.isOffScreen(laser)]
+        # self.shieldPowerUps = [shieldPowerUp for shieldPowerUp in self.shieldPowerUps if not self.isOffScreen(shieldPowerUp)]
+        # self.shootingPowerUps = [shootingPowerUp for shootingPowerUp in self.shootingPowerUps if not self.isOffScreen(shootingPowerUp)]
     
 class Entity:
     def __init__(self, initialX, initialY, w, h, imgName=None):
@@ -495,14 +518,25 @@ class PressurePlatform(Platform):
 
 
 class MainCharacter(Entity):
-    def __init__(self, initialX, initialY, w, h, imgIdleName, imgWalkingName, totalFrames):
+    def __init__(self, initialX, initialY, w, h, imgIdleName, imgWalkingName, totalFrames, imgShieldName, shieldFrames):
         Entity.__init__(self, initialX, initialY, w, h)
         self.keyHandler = {LEFT: False, RIGHT: False, UP: False, DOWN: False}
         self.flyMode = False
         self.imgIdle = loadImage(os.getcwd() + "/images/" + imgIdleName)
         self.imgWalking = loadImage(os.getcwd() + "/images/" + imgWalkingName)
+        self.imgShield = loadImage(os.getcwd() + "/images/" + imgShieldName)
+        self.shieldFrames = shieldFrames
+        self.shieldFrame = 0
         self.frame = 0
         self.totalFrames = totalFrames
+        self.isShieldUp = False
+        self.shieldTimer = 0
+        self.shieldDuration = 60 * 20
+        self.isShooting = False
+        self.shootInterval = 10
+        self.shootTimer = 0
+        self.bulletsRemaining = 0
+        self.bullets = []
 
     def applyKeyPresses(self):
         deltaX = 0
@@ -525,6 +559,13 @@ class MainCharacter(Entity):
         self.velocityX = deltaX
 
     def display(self, yOffset):
+        if self.isShieldUp:
+            fw = 200
+            fh = 200
+            imageMode(CENTER)
+            image(self.imgShield, self.x + self.w / 2, self.y + self.h / 2 + yOffset, self.h, self.h, int(self.shieldFrame) * fw, 0, (int(self.shieldFrame) + 1) * fw, fh)
+            imageMode(CORNER)
+            self.shieldFrame = (self.shieldFrame + 0.2) % self.shieldFrames
         if self.velocityX > 0:
             image(self.imgWalking, self.x, self.y + yOffset, self.w, self.h, int(self.frame) * self.w, 0, (int(self.frame) + 1) * self.w, self.h)
             self.frame = (self.frame + 0.15) % self.totalFrames
@@ -533,6 +574,43 @@ class MainCharacter(Entity):
             self.frame = (self.frame + 0.15) % self.totalFrames
         else:
             image(self.imgIdle, self.x, self.y + yOffset, self.w, self.h)
+        for bullet in self.bullets:
+            bullet.display(yOffset)
+        
+    def startShooting(self):
+        self.isShooting = True
+        self.bulletsRemaining = 20
+
+    def stopShooting(self):
+        self.isShooting = False
+
+    def shoot(self):
+        if self.bulletsRemaining > 0:
+            self.bullets.append(
+                Bullet(
+                    self.x + self.w / 2,
+                    self.y + self.h / 2,
+                    10,
+                    10,
+                    10,
+                    0,
+                )
+            )
+            self.bulletsRemaining -= 1
+
+    def update(self):
+        if self.isShooting and self.shootTimer >= self.shootInterval:
+            self.shoot()
+            self.shootTimer = 0
+        else:
+            self.shootTimer += 1
+        for bullet in self.bullets:
+            bullet.update()
+        if self.isShieldUp:
+            self.shieldTimer += 1
+            if self.shieldDuration == shieldTimer:
+                self.isShieldUp = False
+                self.shieldTimer = 0
 
     def isCollidingGround(self):
         if self.y + self.h >= game.groundY:
@@ -540,29 +618,42 @@ class MainCharacter(Entity):
         return False
    
    
-class Bomb(Entity):
-    def __init__(self, owner, w, h, imgName):
-        Entity.__init__(self, 0, 0, w, h, imgName)
-        self.owner = owner
-        self.x, self.y = self.getCoords()
-    
-    def getCoords(self):
-        return self.owner.x + self.owner.w / 2, self.owner.y - self.h / 2
-    
-    def display(self, yOffset):
-        x, y = self.getCoords()
-        if (isinstance(self.owner, PressurePlatform)):
-            y -= 5
-        # fill(95)
-        # ellipse(x, y + yOffset, self.w, self.h)
-        # display image with x and y converted to top right corner
-        image(self.img, x - self.w / 2, y - self.h / 2 + yOffset, self.w, self.h)
-    
+class GrabbableEntity(Entity):
+    def __init__(self, initialX, initialY, w, h, grabbedBy, imgName):
+        Entity.__init__(self, initialX, initialY, w, h, imgName)
+        self.grabbedBy = grabbedBy
+        self.isGrabbed = False if grabbedBy is None else True
+        self.update()
         
+    def update(self):
+        if self.isGrabbed:
+            self.x = self.grabbedBy.x + self.grabbedBy.w / 2 - self.w / 2
+            self.y = self.grabbedBy.y - self.h
+    
+    def grab(self, entity):
+        self.isGrabbed = True
+        self.grabbedBy = entity
+    
+    def release(self):
+        self.isGrabbed = False
+        self.grabbedBy = None
+
+
+class Bomb(GrabbableEntity):
+    def __init__(self, grabbedBy, w, h, imgName):
+        GrabbableEntity.__init__(self, 0, 0, w, h, grabbedBy, imgName)
+
+    def update(self):
+        GrabbableEntity.update(self)
+        if isinstance(self.grabbedBy, PressurePlatform):
+            self.y -= 5
+        
+
 class Enemy(Entity):
     def __init__(self, initialX, initialY, w, h, imgName):
         Entity.__init__(self, initialX, initialY, w, h, imgName)
         self.bullets = []
+        self.lasers = []
         self.shootInterval = int(random(50, 150))
         self.shootTimer = 0
         self.bulletCount=0
@@ -572,7 +663,7 @@ class Enemy(Entity):
         # self.bulletTypes= int(random(0,3))
         self.hp = 1000
         
-    def update(self):
+    def update(self, target):
         self.shootTimer += 1
         
         if self.hp == 0:
@@ -581,7 +672,7 @@ class Enemy(Entity):
 
         if self.shootTimer >= self.shootInterval:
             if self.canShootBullet:
-                self.shoot()
+                self.shoot(target)
                 self.shootTimer = 0
                 self.shootInterval = int(random(50, 150))
                 # self.hp -= 1
@@ -591,22 +682,23 @@ class Enemy(Entity):
             self.canShootBullet = False  # Disable bullet shooting
             self.laserVisible = True
             self.laserTimer = 0
-            self.generateRandomLaser()
+            # self.generateRandomLaser()
 
         if self.laserVisible:
             self.laserTimer += 1
             if self.laserTimer >= 30:  # Adjust the duration the laser is visible
                 self.laserVisible = False
                 self.canShootBullet = True  # Enable bullet shooting after laser duration
-    def score(self):
-        self.hp -= 1
+    
+    def score(self, points):
+        self.hp -= points
         
-    def shoot(self):
+    def shoot(self, target):
         numBulletsPerShot = 1
         verticaDistanceBetweenbullets = 1
 
-        targetX = game.mainCharacter.x
-        targetY = game.mainCharacter.y
+        targetX = target.x
+        targetY = target.y
         
         # self.hp -= 1
         # print("sera")
@@ -614,86 +706,51 @@ class Enemy(Entity):
         
         if 700< self.hp <= 900:
             for i in range(numBulletsPerShot):
-                yOffset = i * verticaDistanceBetweenbullets
-                dx = targetX - (self.x )
-                dy = targetY - (self.y + self.h // 2) + yOffset
-                angle = atan2(dy, dx)
-                self.bullets.append(
-                    Bullet(
-                        self.x + self.w // 2,
-                        self.y + self.h /2,
-                        20,
-                        20,
-                        10,
-                        angle,
-                        "fireball.png"
-                    )
-                )  # arbitrary values for now
+                self.bullets.append(self.generateBullet(targetX, targetY, 32, 32))  # arbitrary values for now
                 # self.bulletTypes= int(random(0,3))
-                # self.hp -= 1
+                # self.hp -= 1        
                 
         elif 500 <= self.hp <= 700:
             numBulletsPerShot = 1
             for i in range(numBulletsPerShot):
-                yOffset = i * verticaDistanceBetweenbullets
-                dx = targetX - (self.x )
-                dy = targetY - (self.y + self.h // 2) + yOffset
-                angle = atan2(dy, dx)
-                self.bullets.append(
-                    Bullet(
-                        self.x + self.w // 2,
-                        self.y + self.h /2,
-                        30,
-                        30,
-                        10,
-                        angle,
-                        "fireball.png"
-                    )
-                )  # arbitrary values for now
+                self.bullets.append(self.generateBullet(targetX, targetY, 48, 48)) # arbitrary values for now
                 # self.bulletTypes= int(random(0,3))
                 # self.hp -= 1
                 
-        elif 3< self.hp < 500:
+        elif 3 < self.hp < 500:
             numBulletsPerShot = 5
             for i in range(numBulletsPerShot):
-                yOffset = i * verticaDistanceBetweenbullets
-                dx = targetX - (self.x )
-                dy = targetY - (self.y + self.h // 2) + yOffset
-                angle = atan2(dy, dx)
-                self.bullets.append(
-                    Bullet(
-                        self.x + self.w // 2,
-                        self.y + self.h /2,
-                        40,
-                        40,
-                        10,
-                        angle,
-                        "fireball.png"
-                    )
-                )  # arbitrary values for now
+                self.bullets.append(self.generateBullet(targetX, targetY, 64, 64)) # arbitrary values for now
                 # self.bulletTypes= int(random(0,3))
                 # self.hp -= 1
-                self.generateRandomLaser()
-    
-        # else:
-        #     print(self.hp)
-        #     # pass
-        #     self.generateRandomLaser()
+                self.lasers.append(self.generateLaser(targetX, targetY, 64, 64))
+        for laser in self.lasers:
+            laser.update()
             
-    def generateRandomLaser(self):
-        targetX = game.mainCharacter.x
-        targetY = game.mainCharacter.y
+    def generateBullet(self, targetX, targetY, w, h):
+        # yOffset = i * verticaDistanceBetweenbullets
+        dx = targetX - (self.x )
+        dy = targetY - (self.y + self.h // 2) #+ yOffset
+        angle = atan2(dy, dx)
+        return Bullet(
+            self.x + self.w // 2,
+            self.y + self.h /2,
+            w,
+            h,
+            10,
+            angle,
+            "fireball.png"
+        )
 
-        ACTIVE_LASERS.append(
-            Laser(
-                self.x + self.w // 2,
-                self.y + self.h / 2,
-                targetX + game.mainCharacter.w // 2,
-                targetY + game.mainCharacter.h // 2,
-                10,
-                10,
-                10,
-            )
+    def generateLaser(self, targetX, targetY, w, h):
+        return Laser(
+            self.x + self.w // 2,
+            self.y + self.h / 2,
+            targetX + game.mainCharacter.w // 2,
+            targetY + game.mainCharacter.h // 2,
+            w,
+            h,
+            10,
         )
 
     def display(self, yOffset):
@@ -701,7 +758,7 @@ class Enemy(Entity):
         for bullet in self.bullets:
             bullet.display(yOffset)
 
-        for laser in ACTIVE_LASERS:
+        for laser in self.lasers:
             laser.display(yOffset)
 
 
@@ -725,120 +782,22 @@ class Bullet(Entity):
     def update(self):
         self.x =self.x
         self.y -= self.speed
-    
-        
-class ShootingPowerUp(Entity):
-    def __init__(self, platform, w, h):
-        x = platform.x + platform.w / 2 - w / 2
-        y = platform.y - h  # Adjust the y-coordinate as needed
-        Entity.__init__(self, x, y, w, h)
+
+
+class PowerUp(GrabbableEntity):
+    def __init__(self, grabbedBy, w, h, imgName=None):
+        GrabbableEntity.__init__(self, 0, 0, w, h, grabbedBy, imgName)
         self.color = color(255, 0, 0)
-        self.shooting_duration = 10
-        self.shooting_timer = 0
-        self.is_shooting = False
-        self.remaining_duration = self.shooting_duration
-        self.shooting_delay = 10
+        self.duration = 60 * 20
 
     def display(self, yOffset):
-        fill(self.color)
-        stroke(0)
-        ellipse(self.x + self.w / 2, self.y + self.h / 2 + yOffset, self.w, self.h)
-        
-    def shoot(self):
-        if not self.is_shooting:
-            self.is_shooting = True
-            self.shooting_timer = 30
-            self.remaining_duration = self.shooting_duration
-            
-        if frameCount % self.shooting_delay == 0:
-            BULLET_2.append(
-                Bullet(
-                    game.mainCharacter.x + game.mainCharacter.w / 2,
-                    game.mainCharacter.y + game.mainCharacter.h / 2,
-                    10,
-                    10,
-                    10,
-                    0,
-                )
-            )
-
-    def update(self):
-        if self.is_shooting:
-            self.shooting_timer += 1
-            if self.shooting_timer % 0.5 == 0:  
-                self.shoot()
-            if self.shooting_timer >= self.shooting_duration:
-                self.is_shooting = False
-                self.shooting_timer = 0
-                self.remaining_duration = 0
-                self.shoot()
-
-    def resetPowerUp(self):
-        if game.platformLayers and game.platformLayers[0]:
-            random_layer_index = int(random(0, len(game.platformLayers)))
-            if game.platformLayers[random_layer_index]:
-                random_platform_index = int(random(0, len(game.platformLayers[random_layer_index])))
-                platform = game.platformLayers[random_layer_index][random_platform_index]
-                self.x = platform.x + platform.w / 2 - self.w / 2
-                self.y = platform.y - self.h
-game = Game(CANVAS_WIDTH, CANVAS_HEIGHT, CANVAS_HEIGHT)
-        
-class ShieldPowerUp(Entity):
-    def __init__(self, initialX, initialY, w, h):
-        Entity.__init__(self, initialX, initialY, w, h)
-        self.flyMode = False
-        self.timer = 0
-        self.disappear_duration = 60 * 20  # Adjust the duration the rectangle disappears (in frames)
-        self.reappear_duration = random(60 * 20, 60*30)
-        self.cooldown_duration = 60 * 20  # Adjusts the cooldown duration (in frames)
-        self.cooldown_timer = 0
-        
-    def display(self, yOffset):
-        if self.timer < self.disappear_duration:
-            if self.cooldown_timer == 0:
-                self.placeOnRandomPlatform()
-                self.cooldown_timer = self.cooldown_duration
-            else:
-                self.cooldown_timer -= 1
+        if self.img is None:
+            fill(self.color)
             stroke(0)
-            fill(255, 255, 0)
-            rect(self.x, self.y + yOffset, self.w, self.h)
-        
+            ellipse(self.x + self.w / 2, self.y + self.h / 2 + yOffset, self.w, self.h)
         else:
-            if self.timer >= self.disappear_duration + self.reappear_duration:
-                self.placeOnRandomPlatform()
-                self.timer = 0
-        self.timer += 1
+            GrabbableEntity.display(self, yOffset)
 
-        
-    def placeOnRandomPlatform(self):
-        randomPlatform = game.getRandomPlatform()
-        while isinstance(randomPlatform, PressurePlatform):
-            randomPlatform = game.getRandomPlatform()
-        self.x = randomPlatform.x + randomPlatform.w / 2 - self.w / 2
-        self.y = randomPlatform.y - self.h
-
-    def isCollidingGround(self):
-        if (
-            game.mainCharacter.x < self.x + self.w
-            and game.mainCharacter.x + game.mainCharacter.w > self.x
-            and game.mainCharacter.y < self.y + self.h
-            and game.mainCharacter.y + game.mainCharacter.h > self.y
-        ):
-            # Adjust position behind the player
-            self.x = game.mainCharacter.x - self.w
-            self.y = game.mainCharacter.y
-            return True
-        return False
-    
-    def followPlayer(self, player):
-        # Update shield power-up position to follow the main character
-        self.x = game.mainCharacter.x+ (game.mainCharacter.w-self.w)//2
-        self.y = game.mainCharacter.y- game.mainCharacter.h//3
-   
-    
-shieldPowerUp = ShieldPowerUp(0, 0, 40, 40)
-    
                 
 class Laser(Entity):
     def __init__(self, initialX, initialY, targetX, targetY, w, h, speed):
@@ -857,15 +816,16 @@ class Laser(Entity):
         stroke(255, 0, 0)
         line(self.x, self.y + yOffset, self.x + cos(self.angle) * 1000, self.y + sin(self.angle) * 1000)
         
+
+game = Game(CANVAS_WIDTH, CANVAS_HEIGHT, CANVAS_HEIGHT)
+
+
 def setup():
     frameRate(60)
     size(game.w, game.h)
 
 
 def draw():
-    # rotate(PI/2)
-    # translate(0, -800)
-    shieldPowerUp.display(game.yOffset)
     game.display()
     game.update()
     
@@ -874,6 +834,7 @@ def mouseClicked():
     if current_screen == START_SCREEN:
         if game.start_page.isStartButtonClicked(mouseX, mouseY):
             current_screen = GAME_SCREEN  # Switch to the game screen
+            loop()
         elif game.start_page.isContinueButtonClicked(mouseX, mouseY):
             current_screen = GAME_SCREEN  # Switch to the game screen
             loop()
@@ -883,8 +844,9 @@ def mouseClicked():
 
     elif current_screen == END_SCREEN:
         if game.end_page.isReStartButtonClicked(mouseX, mouseY):
-            current_screen = START_SCREEN  # Switch to the start screen
+            current_screen = GAME_SCREEN  # Switch to the start screen
             loop()  # Resume the draw loop
+    print(current_screen)
 
     
 def keyPressed():
