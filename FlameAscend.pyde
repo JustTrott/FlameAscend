@@ -153,6 +153,7 @@ class Game:
 
     def detectCollisions(self):
         mc = self.mainCharacter
+        ec= self.enemy #Enemy Character
         currentPlatforms = self.getCurrentPlatforms(mc)
         
         for bullet in self.enemy.bullets:
@@ -179,6 +180,10 @@ class Game:
             self.powerUp.update()
             print("HAHAHA")
             self.powerUp.resetPowerUp()
+            
+        for bullet in BULLET_2:
+            if self.isCollidingRectangleCircle(ec, bullet):
+                ec.score()
             
         if self.isCollidingRectangles(mc, shieldPowerUp):
             shieldPowerUp.followPlayer(mc)
@@ -460,20 +465,25 @@ class Enemy(Entity):
         self.laserVisible = False
         self.canShootBullet = True  
         self.laserTimer = 0
-        self.bulletTypes= int(random(0,3))
+        # self.bulletTypes= int(random(0,3))
+        self.hp = 1000
         
     def update(self):
         self.shootTimer += 1
+        
+        if self.hp == 0:
+            print("You win!")
+            return
 
         if self.shootTimer >= self.shootInterval:
             if self.canShootBullet:
                 self.shoot()
                 self.shootTimer = 0
                 self.shootInterval = int(random(50, 150))
-                self.bulletCount += 1
+                # self.hp -= 1
 
         if 5 <= self.bulletCount <= 10:
-            self.bulletCount = 0
+            # self.bulletCount = 0
             self.canShootBullet = False  # Disable bullet shooting
             self.laserVisible = True
             self.laserTimer = 0
@@ -484,7 +494,9 @@ class Enemy(Entity):
             if self.laserTimer >= 30:  # Adjust the duration the laser is visible
                 self.laserVisible = False
                 self.canShootBullet = True  # Enable bullet shooting after laser duration
-    
+    def score(self):
+        self.hp -= 1
+        
     def shoot(self):
         numBulletsPerShot = 1
         verticaDistanceBetweenbullets = 1
@@ -492,7 +504,11 @@ class Enemy(Entity):
         targetX = game.mainCharacter.x
         targetY = game.mainCharacter.y
         
-        if self.bulletTypes == 0:
+        # self.hp -= 1
+        # print("sera")
+        
+        
+        if 700< self.hp <= 1000:
             for i in range(numBulletsPerShot):
                 yOffset = i * verticaDistanceBetweenbullets
                 dx = targetX - (self.x )
@@ -502,16 +518,17 @@ class Enemy(Entity):
                     Bullet(
                         self.x + self.w // 2,
                         self.y + self.h /2,
-                        32,
-                        32,
+                        20,
+                        20,
                         10,
                         angle,
                         "fireball.png"
                     )
                 )  # arbitrary values for now
-                self.bulletTypes= int(random(0,3))
+                # self.bulletTypes= int(random(0,3))
+                # self.hp -= 1
                 
-        elif self.bulletTypes == 1:
+        elif 500 <= self.hp <= 700:
             numBulletsPerShot = 1
             for i in range(numBulletsPerShot):
                 yOffset = i * verticaDistanceBetweenbullets
@@ -522,16 +539,17 @@ class Enemy(Entity):
                     Bullet(
                         self.x + self.w // 2,
                         self.y + self.h /2,
-                        48,
-                        48,
+                        30,
+                        30,
                         10,
                         angle,
                         "fireball.png"
                     )
                 )  # arbitrary values for now
-                self.bulletTypes= int(random(0,3))
+                # self.bulletTypes= int(random(0,3))
+                # self.hp -= 1
                 
-        elif self.bulletTypes == 2:
+        elif 3< self.hp < 500:
             numBulletsPerShot = 5
             for i in range(numBulletsPerShot):
                 yOffset = i * verticaDistanceBetweenbullets
@@ -542,18 +560,21 @@ class Enemy(Entity):
                     Bullet(
                         self.x + self.w // 2,
                         self.y + self.h /2,
-                        48,
-                        48,
+                        40,
+                        40,
                         10,
                         angle,
                         "fireball.png"
                     )
                 )  # arbitrary values for now
-                self.bulletTypes= int(random(0,3))
-                
-        elif self.bulletTypes == 3:
-            # pass
-            self.generateRandomLaser()
+                # self.bulletTypes= int(random(0,3))
+                # self.hp -= 1
+                self.generateRandomLaser()
+    
+        # else:
+        #     print(self.hp)
+        #     # pass
+        #     self.generateRandomLaser()
             
     def generateRandomLaser(self):
         targetX = game.mainCharacter.x
