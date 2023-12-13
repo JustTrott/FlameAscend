@@ -30,12 +30,15 @@ add_library('minim')
 player=Minim(this)
 add_library('sound')
 
+# A screen controller class that oversees the switching of screens
 class ScreenController:
     def __init__(self):
         self.game = Game(CANVAS_WIDTH, CANVAS_HEIGHT, CANVAS_HEIGHT)
         self.start_page = StartPage()
         self.end_page = EndPage()
         self.current_screen = START_SCREEN
+        self.scores = []
+        self.end_result=0
 
     def display(self):
         if self.current_screen == START_SCREEN:
@@ -64,6 +67,10 @@ class ScreenController:
             pass
         elif self.current_screen == GAME_SCREEN:
             if self.game.isGameFinished:
+                if self.game.isPlayerDead:
+                    self.end_result = 1
+                else:
+                    self.scores.append(self.game.current_score)
                 self.game.display()
                 delay(1000)
                 self.switchScreen(END_SCREEN)
@@ -75,7 +82,7 @@ class ScreenController:
     def switchScreen(self, screen):
         self.current_screen = screen
 
-
+# Starting page class
 class StartPage:
     def __init__(self):
         self.button_width = CANVAS_WIDTH // 5
@@ -124,6 +131,7 @@ class StartPage:
         )
 
 
+# Ending page class
 class EndPage:
     def __init__(self):
         self.button_width = CANVAS_WIDTH // 5
@@ -134,16 +142,21 @@ class EndPage:
         self.background_image = loadImage(os.getcwd() + "/images/background.jpg")
         self.text_image = loadImage(os.getcwd() + "/images/FLAME-ASCEND.png")
         self.start_image = loadImage(os.getcwd() + "/images/Restart-Game.png")
+        self.win_image = loadImage(os.getcwd() + "/images/You-won.png")
+        self.lose_image = loadImage(os.getcwd() + "/images/You-lost.png")
 
     def display(self):
         background(self.background_image)
-        image(self.text_image, 320, 150, CANVAS_WIDTH // 2, CANVAS_HEIGHT // 4)
-        
+        # image(self.text_image, 320, 150, CANVAS_WIDTH // 2, CANVAS_HEIGHT // 4)
+        if sc.end_result==0:
+            image(self.win_image, 320, 125, CANVAS_WIDTH // 2, CANVAS_HEIGHT // 6)
+        elif sc.end_result==1:
+            image(self.lose_image, 320, 125, CANVAS_WIDTH // 2, CANVAS_HEIGHT // 6)
         
         start_image_width = CANVAS_WIDTH // 5
-        start_image_height = CANVAS_HEIGHT // 15
+        start_image_height = CANVAS_HEIGHT // 20
         start_image_x = (CANVAS_WIDTH - start_image_width) // 2
-        start_image_y = 450  # Adjust the y-coordinate as needed
+        start_image_y = 650  # Adjust the y-coordinate as needed
         image(self.start_image, start_image_x, start_image_y, start_image_width, start_image_height)
         
         fill(0)
@@ -160,6 +173,7 @@ class EndPage:
         )
 
 
+# Utility functions for functions that are unrelated to any class
 class Utils:
     def isLineSegmentIntersectCircle(self, segmentX1, segmentY1, segmentX2, segmentY2, centerX, centerY, radius):
         
@@ -222,7 +236,8 @@ class Utils:
 
 utils = Utils()
 
-
+# A class that represents a bullet
+# A main class that controls the game
 class Game:
     def __init__(self, w, h, groundY):
         self.w = w
@@ -232,7 +247,7 @@ class Game:
         self.fallAcceleration = FREE_FALL_ACCELERATION
         self.topPlatformY = groundY - 3 * LAYER_HEIGHT - PLATFORM_WIDTH * 0.5
         self.isGameFinished = False
-
+        self.isPlayerDead = False
         self.mainCharacter = MainCharacter(400, self.topPlatformY - 64, 32, 64, "mc-idle.png", "mc-walking-right.png", 4, "shield-active.png", 10)  # arbitrary values for now
         self.startY = self.mainCharacter.y
         self.enemy = Enemy(CANVAS_WIDTH / 2 - 64, 10, 128, 113, "enemy.png")  # arbitrary values for now
@@ -279,7 +294,7 @@ class Game:
     #             self.score_saved = True
     
     def update_scores(self):
-        self.current_score = int((millis() - self.start_time)/100)
+        self.current_score = int((millis() - self.start_time)/1000)
         
 
     def display_scores(self):
@@ -404,6 +419,7 @@ class Game:
                 self.gameOver.rewind()
                 self.bgMusic.pause()
                 self.isGameFinished = True
+                self.isPlayerDead = True
                 return
 
         if self.bomb.grabbedBy == mc:
@@ -420,6 +436,7 @@ class Game:
         if mc.isCollidingGround(self.groundY + mc.h):
             print("Collision of " + str(mc) + " and ground")
             self.isGameFinished = True
+            self.isPlayerDead = True
             self.playerDeath.play()
             delay(400)
             self.gameOver.play()
@@ -439,6 +456,7 @@ class Game:
                     self.gameOver.play()
                     self.gameOver.rewind()
                     self.isGameFinished = True
+                    self.isPlayerDead = True
                     return
             
         for shieldPowerUp in self.shieldPowerUps:
@@ -462,14 +480,6 @@ class Game:
                 self.score(10)
                 self.mainCharacter.bullets.remove(bullet)
             
-        if not mc.isShieldUp:
-            for laser in self.enemy.lasers:
-                if self.isCollidingRectangleCircle(mc, laser):
-                    print("Collision of" + str(mc) + " and " + str(laser))
-                    self.gameOver.play()
-                    self.gameOver.rewind()
-                    self.isGameFinished = True
-                    return
             
         for platform in currentPlatforms:
             if isinstance(platform, JumpPlatform):
