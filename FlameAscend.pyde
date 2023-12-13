@@ -848,9 +848,8 @@ class Enemy(Entity):
             return
 
         if self.shootTimer >= self.shootInterval:
-            if self.canShootBullet:
-                self.shoot(target)
-                self.shootTimer = 0
+            self.shoot(target)
+            self.shootTimer = 0
 
         for laser in self.lasers:
             laser.update()
