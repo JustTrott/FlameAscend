@@ -48,14 +48,15 @@ class ScreenController:
     def mouseClicked(self, mouseX, mouseY):
         if self.current_screen == START_SCREEN:
             if self.start_page.isStartButtonClicked(mouseX, mouseY):
-                self.current_screen = GAME_SCREEN
+                self.game = Game(CANVAS_WIDTH, CANVAS_HEIGHT, CANVAS_HEIGHT)
+                self.switchScreen(GAME_SCREEN)
             elif self.start_page.isContinueButtonClicked(mouseX, mouseY):
-                self.current_screen = GAME_SCREEN
+                self.switchScreen(GAME_SCREEN)
         elif self.current_screen == GAME_SCREEN:
             pass
         elif self.current_screen == END_SCREEN:
             if self.end_page.isReStartButtonClicked(mouseX, mouseY):
-                self.game = Game(CANVAS_WIDTH, CANVAS_HEIGHT, CANVAS_HEIGHT - 100)
+                self.game = Game(CANVAS_WIDTH, CANVAS_HEIGHT, CANVAS_HEIGHT)
                 self.switchScreen(GAME_SCREEN)
 
     def update(self):
@@ -63,7 +64,7 @@ class ScreenController:
             pass
         elif self.current_screen == GAME_SCREEN:
             if self.game.isGameFinished:
-                self.current_screen = END_SCREEN
+                self.switchScreen(END_SCREEN)
             else:
                 self.game.update()
         elif self.current_screen == END_SCREEN:
@@ -182,6 +183,40 @@ class Utils:
                 return True
         return False
 
+    def isLineSegmentsIntersect(self, segmentX1, segmentY1, segmentX2, segmentY2, segmentX3, segmentY3, segmentX4, segmentY4):
+        # math reference: https://stackoverflow.com/questions/563198/how-do-you-detect-where-two-line-segments-intersect
+        # Return true if line segments AB and CD intersect
+        def ccw(A, B, C):
+            return (C[1] - A[1]) * (B[0] - A[0]) > (B[1] - A[1]) * (C[0] - A[0])
+        
+        return ccw((segmentX1, segmentY1), (segmentX3, segmentY3), (segmentX4, segmentY4)) != ccw((segmentX2, segmentY2), (segmentX3, segmentY3), (segmentX4, segmentY4)) and ccw((segmentX1, segmentY1), (segmentX2, segmentY2), (segmentX3, segmentY3)) != ccw((segmentX1, segmentY1), (segmentX2, segmentY2), (segmentX4, segmentY4))
+        
+    def computeParallelLinesAtDistance(self, line, distance):
+        k, b = line
+        e = b + distance * (1 + k ** 2) ** 0.5
+        f = b - distance * (1 + k ** 2) ** 0.5
+        return [(k, e), (k, f)]
+
+    def computeLineIntersectionWithScreenEdges(self, line, canvasWidth, canvasHeight):
+        k, b = line
+        # y = kx + b
+        # x = (y - b) / k
+        # y = canvasHeight
+        # x = (canvasHeight - b) / k
+        # x = 0
+        # y = b
+        # x = canvasWidth
+        # y = k * canvasWidth + b
+        bottomIntersection = ((canvasHeight - b) / k, canvasHeight)
+        leftIntersection = (0, b)
+        rightIntersection = (canvasWidth, k * canvasWidth + b)
+        if k < 0:
+            return [bottomIntersection, leftIntersection]
+        else:
+            return [bottomIntersection, rightIntersection]
+
+    def distanceBetweenPoints(self, p1, p2):
+        return ((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2) ** (0.5)
 
 utils = Utils()
 
@@ -191,6 +226,7 @@ class Game:
         self.w = w
         self.h = h
         self.groundY = groundY
+        self.groundImage = loadImage(os.getcwd() + "/images/lava.png")
         self.fallAcceleration = FREE_FALL_ACCELERATION
         self.topPlatformY = groundY - 3 * LAYER_HEIGHT - PLATFORM_WIDTH * 0.5
         self.isGameFinished = False
@@ -284,6 +320,7 @@ class Game:
         background(self.background)
         stroke(GROUND_STROKE_WIDTH)
         line(0, self.groundY + self.yOffset, self.w, self.groundY + self.yOffset)
+        image(self.groundImage, 0, self.groundY + self.yOffset, self.w, self.h - self.groundY - self.yOffset, 0, 0, self.w, int(self.h - self.groundY - self.yOffset))
         platformLayersToDisplay = self.platformLayers if self.isLowestLayerVisible else self.platformLayers[1:]
         for platforms in platformLayersToDisplay:
             for platform in platforms:
@@ -296,14 +333,15 @@ class Game:
             shieldPowerUp.display(self.yOffset)
         for shootingPowerUp in self.shootingPowerUps:
             shootingPowerUp.display(self.yOffset)
+
             
     def update(self):
         self.update_scores()
 
         # Display scores
         self.display_scores()
-        # future rising lava
-        # self.groundY -= 1
+
+        self.groundY -= 0.5
         mc = self.mainCharacter
         self.yOffset = self.startY - mc.y
         currentGroundY = self.getHighestPlatformY(mc)
@@ -332,7 +370,7 @@ class Game:
                 self.flickerCount = 0
                 self.changingFrame = None
                 # self.yOffset += LAYER_HEIGHT
-                self.groundY -= LAYER_HEIGHT
+                self.groundY = self.topPlatformY + 7 * LAYER_HEIGHT
                 # self.mainCharacter.y += LAYER_HEIGHT
                 newPressurePlatform = self.getRandomPlatform()
                 while isinstance(newPressurePlatform, JumpPlatform) or isinstance(newPressurePlatform, PressurePlatform):
@@ -345,14 +383,12 @@ class Game:
                         if platforms[i] == newPressurePlatform:
                             platforms[i] = PressurePlatform(platforms[i].x, platforms[i].y, platforms[i].w, platforms[i].h, "platform.png")
                 self.bomb = self.generateBomb()
-                self.enemy.score(100)
+                self.score(100)
         self.bomb.update()
         mc.update()
         self.cleanUp()
 
     def detectCollisions(self):
-        
-        global current_screen  # Declare current_screen as global
         mc = self.mainCharacter
         ec= self.enemy #Enemy Character
         currentPlatforms = self.getCurrentPlatforms(mc)
@@ -388,6 +424,20 @@ class Game:
             self.bgMusic.pause()
             return
 
+        if not mc.isShieldUp:
+            for laser in self.enemy.lasers:
+                if not laser.isShooting:
+                    continue
+                # construct two line segments from laser.edges
+                segment1X1, segment1Y1, segment1X2, segment1Y2 = laser.edges[0], laser.edges[1], laser.edges[6], laser.edges[7]
+                segment2X1, segment2Y1, segment2X2, segment2Y2 = laser.edges[2], laser.edges[3], laser.edges[4], laser.edges[5]
+                if self.isCollidingRectangleLine(mc, (segment1X1, segment1Y1, segment1X2, segment1Y2)) or self.isCollidingRectangleLine(mc, (segment2X1, segment2Y1, segment2X2, segment2Y2)):
+                    print("Collision of " + str(mc) + " and " + str(laser))
+                    self.gameOver.play()
+                    self.gameOver.rewind()
+                    self.isGameFinished = True
+                    return
+            
         for shieldPowerUp in self.shieldPowerUps:
             if self.isCollidingRectangleCircle(mc, shieldPowerUp):
                 self.shieldPowerUps.remove(shieldPowerUp)
@@ -406,11 +456,8 @@ class Game:
             if self.isCollidingRectangleCircle(ec, bullet):
                 self.enemyDamage.play()
                 self.enemyDamage.rewind()
-                ec.score(10)
+                self.score(10)
                 self.mainCharacter.bullets.remove(bullet)
-            
-        # if self.isCollidingRectangles(mc, shieldPowerUp):
-        #     shieldPowerUp.followPlayer(mc)
             
         if not mc.isShieldUp:
             for laser in self.enemy.lasers:
@@ -485,21 +532,18 @@ class Game:
             return True
         return False
     
-    def isCollidingRectangleLine(self, entityRectangle, entityLine):
+    def isCollidingRectangleLine(self, entityRectangle, lineSegment):
         rectangleX, rectangleY = entityRectangle.x, entityRectangle.y
         w, h = entityRectangle.w, entityRectangle.h
-        lineX1, lineY1, lineX2, lineY2 = entityLine.x1, entityLine.y1, entityLine.x2, entityLine.y2
-
-        # Check if any of the rectangle edges intersect with the line segment
-        if utils.isLineSegmentIntersectLine(rectangleX, rectangleY, rectangleX + w, rectangleY, lineX1, lineY1, lineX2, lineY2):
+        segmentX1, segmentY1, segmentX2, segmentY2 = lineSegment
+        if utils.isLineSegmentsIntersect(rectangleX, rectangleY, rectangleX + w, rectangleY, segmentX1, segmentY1, segmentX2, segmentY2):
             return True
-        if utils.isLineSegmentIntersectLine(rectangleX, rectangleY, rectangleX, rectangleY + h, lineX1, lineY1, lineX2, lineY2):
+        if utils.isLineSegmentsIntersect(rectangleX, rectangleY, rectangleX, rectangleY + h, segmentX1, segmentY1, segmentX2, segmentY2):
             return True
-        if utils.isLineSegmentIntersectLine(rectangleX + w, rectangleY, rectangleX + w, rectangleY + h, lineX1, lineY1, lineX2, lineY2):
+        if utils.isLineSegmentsIntersect(rectangleX + w, rectangleY, rectangleX + w, rectangleY + h, segmentX1, segmentY1, segmentX2, segmentY2):
             return True
-        if utils.isLineSegmentIntersectLine(rectangleX, rectangleY + h, rectangleX + w, rectangleY + h, lineX1, lineY1, lineX2, lineY2):
+        if utils.isLineSegmentsIntersect(rectangleX, rectangleY + h, rectangleX + w, rectangleY + h, segmentX1, segmentY1, segmentX2, segmentY2):
             return True
-
         return False
 
     def isCollidingRectangles(self, entityRectangle1, entityRectangle2):
@@ -567,6 +611,16 @@ class Game:
     def triggerBombExplosion(self):
         self.isBombExploding = True
         
+    def score(self, score):
+        self.enemy.hp -= score
+        print(self.enemy.hp)
+        if self.enemy.hp <= 0:
+            self.enemyDeath.play()
+            self.enemyDeath.rewind()
+            self.isGameFinished = True
+            self.bgMusic.pause()
+            return
+
     def isOffScreen(self, entity):
         # take self.yOffset into account
         return entity.y + entity.h + self.yOffset < 0 or entity.y + self.yOffset > self.h or entity.x + entity.w < 0 or entity.x > self.w
@@ -574,6 +628,7 @@ class Game:
     def cleanUp(self):
         self.mainCharacter.bullets = [bullet for bullet in self.mainCharacter.bullets if not self.isOffScreen(bullet)]
         self.enemy.bullets = [bullet for bullet in self.enemy.bullets if not self.isOffScreen(bullet)]
+        self.enemy.lasers = [laser for laser in self.enemy.lasers if not laser.isFinished]
         # self.enemy.lasers = [laser for laser in self.enemy.lasers if not self.isOffScreen(laser)]
         # self.shieldPowerUps = [shieldPowerUp for shieldPowerUp in self.shieldPowerUps if not self.isOffScreen(shieldPowerUp)]
         # self.shootingPowerUps = [shootingPowerUp for shootingPowerUp in self.shootingPowerUps if not self.isOffScreen(shootingPowerUp)]
@@ -784,15 +839,10 @@ class Enemy(Entity):
         self.shootInterval = int(random(50, 150))
         self.shootTimer = 0
         self.bulletCount=0
-        self.laserVisible = False
-        self.canShootBullet = True  
-        self.laserTimer = 0
-        # self.bulletTypes= int(random(0,3))
         self.hp = 1000
         
     def update(self, target):
         self.shootTimer += 1
-        
         if self.hp == 0:
             print("You win!")
             return
@@ -801,24 +851,9 @@ class Enemy(Entity):
             if self.canShootBullet:
                 self.shoot(target)
                 self.shootTimer = 0
-                self.shootInterval = int(random(50, 150))
-                # self.hp -= 1
 
-        if 5 <= self.bulletCount <= 10:
-            # self.bulletCount = 0
-            self.canShootBullet = False  # Disable bullet shooting
-            self.laserVisible = True
-            self.laserTimer = 0
-            # self.generateRandomLaser()
-
-        if self.laserVisible:
-            self.laserTimer += 1
-            if self.laserTimer >= 30:  # Adjust the duration the laser is visible
-                self.laserVisible = False
-                self.canShootBullet = True  # Enable bullet shooting after laser duration
-    
-    def score(self, points):
-        self.hp -= points
+        for laser in self.lasers:
+            laser.update()
         
     def shoot(self, target):
         numBulletsPerShot = 1
@@ -827,45 +862,30 @@ class Enemy(Entity):
         targetX = target.x + target.w / 2
         targetY = target.y + target.h / 2
         
-        # self.hp -= 1
-        # print("sera")
-        
-        
-        if 700< self.hp <= 900:
+        if 700 < self.hp <= 900:
             for i in range(numBulletsPerShot):
                 self.bullets.append(self.generateBullet(targetX, targetY, 32, 32))  # arbitrary values for now
+                self.shootInterval = randint(50, 150)
                 sc.game.fireBall.play()
                 sc.game.fireBall.rewind()
                 # self.bulletTypes= int(random(0,3))
                 # self.hp -= 1        
-                
         elif 500 <= self.hp <= 700:
             numBulletsPerShot = 1
             for i in range(numBulletsPerShot):
                 self.bullets.append(self.generateBullet(targetX, targetY, 48, 48)) # arbitrary values for now
+                
+                self.shootInterval = randint(200, 250)
                 sc.game.fireBall.play()
                 sc.game.fireBall.rewind()
                 # self.bulletTypes= int(random(0,3))
                 # self.hp -= 1
-                
         elif 3 < self.hp < 500:
-            numBulletsPerShot = 5
-            for i in range(numBulletsPerShot):
-                self.bullets.append(self.generateBullet(targetX, targetY, 64, 64)) # arbitrary values for now
-                sc.game.fireBall.play()
-                sc.game.fireBall.rewind()
-                # self.bulletTypes= int(random(0,3))
-                # self.hp -= 1
-                self.lasers.append(self.generateLaser(targetX, targetY, 64, 64))
-                
-        elif self.hp==0:
+            self.lasers.append(self.generateLaser(targetX, targetY, 15))
+            self.shootInterval = randint(250, 300)
+        elif self.hp<=0:
             game.enemyDeath.play()
             print("You win")
-            
-        for laser in self.lasers:
-            laser.update()
-            sc.game.laser.play()
-            sc.game.laser.rewind()
             
     def generateBullet(self, targetX, targetY, w, h):
         dx = targetX - (self.x + self.w / 2)
@@ -876,20 +896,19 @@ class Enemy(Entity):
             self.y + self.h,
             w,
             h,
-            10,
+            5,
             angle,
             "fireball.png"
         )
 
-    def generateLaser(self, targetX, targetY, w, h):
+    def generateLaser(self, targetX, targetY, w):
         return Laser(
             self.x + self.w // 2,
             self.y + self.h,
             targetX,
             targetY,
             w,
-            h,
-            10,
+            2,
         )
 
     def display(self, yOffset):
@@ -926,6 +945,7 @@ class Bullet(Entity):
 class PowerUp(GrabbableEntity):
     def __init__(self, grabbedBy, w, h, imgName=None):
         GrabbableEntity.__init__(self, 0, 0, w, h, grabbedBy, imgName)
+        self.y -= 10
         self.color = color(255, 0, 0)
         self.duration = 60 * 20
 
@@ -938,23 +958,76 @@ class PowerUp(GrabbableEntity):
             GrabbableEntity.display(self, yOffset)
 
                 
-class Laser(Entity):
-    def __init__(self, initialX, initialY, targetX, targetY, w, h, speed):
-            Entity.__init__(self, initialX, initialY, w, h)
-            self.speed = speed
-            self.angle = atan2(targetY - initialY, targetX - initialX)
-            self.velocityX = self.speed * cos(self.angle)
-            self.velocityY = self.speed * sin(self.angle)
-    
+class Laser():
+    def __init__(self, initialX, initialY, targetX, targetY, w, timeBeforeShooting):
+            self.x = initialX
+            self.y = initialY
+            self.w = w
+            self.timeBeforeShooting = timeBeforeShooting * 60
+            k = (targetY - initialY) / (targetX - initialX)
+            self.line = (k, initialY - k * initialX)
+            self.isShooting = False
+            self.shootingDuration = 30
+            self.edges = self.findEdges()
+            self.isFinished = False
+
     def update(self):
-        self.x += self.velocityX
-        self.y += self.velocityY
+        self.timeBeforeShooting -= 1
+        if self.timeBeforeShooting == 0:
+            self.isShooting = True
+        if self.isShooting:
+            self.shootingDuration -= 1
+            if self.shootingDuration == 0:
+                self.isFinished = True
+
 
     def display(self, yOffset):
         fill(255, 0, 0)  # Red color for the laser
         stroke(255, 0, 0)
-        line(self.x, self.y + yOffset, self.x + cos(self.angle) * 1000, self.y + sin(self.angle) * 1000)
+        # if not self.isShooting, display the laser line for half a second every second
+        if not self.isShooting and frameCount % 30 < 15:
+            self.displayLaserLine(yOffset)
+        elif self.isShooting:
+            # change the color of the laser to whit for the last 10 frames
+            if self.shootingDuration <= 10:
+                fill(255)
+                stroke(255)
+            self.displayLaser(yOffset)
+            self.laser.play()
+            self.laser.rewind()
         
+    def displayLaserLine(self, yOffset):
+        intersectionPoints = utils.computeLineIntersectionWithScreenEdges(self.line, CANVAS_WIDTH, CANVAS_HEIGHT)
+        # append the point closest to the self.x, self.y
+        closestPoint = intersectionPoints[0]
+        for point in intersectionPoints:
+            if utils.distanceBetweenPoints((self.x, self.y), point) < utils.distanceBetweenPoints((self.x, self.y), closestPoint):
+                closestPoint = point
+        line(self.x, self.y + yOffset, closestPoint[0], closestPoint[1] + yOffset)
+
+    def displayLaser(self, yOffset):
+        # draw the laser
+        # quad(laserEdges[0][0], laserEdges[0][1] + yOffset, laserEdges[1][0], laserEdges[1][1] + yOffset, laserEdges[2][0], laserEdges[2][1] + yOffset, laserEdges[3][0], laserEdges[3][1] + yOffset)
+        quad(self.edges[0], self.edges[1] + yOffset, self.edges[2], self.edges[3] + yOffset, self.edges[4], self.edges[5] + yOffset, self.edges[6], self.edges[7] + yOffset)
+
+    def findEdges(self):
+        # find two parallel lines at a distance of self.w from the laser line
+        parallelLines = utils.computeParallelLinesAtDistance(self.line, self.w)
+        # find the intersection points of the parallel lines and the screen edges
+        laserEdges = [self.x - self.w, self.y, self.x + self.w, self.y]
+        if self.line[0] > 0:
+            parallelLines[0], parallelLines[1] = parallelLines[1], parallelLines[0]
+        for parallelLine in parallelLines:
+            intersectionPoints = utils.computeLineIntersectionWithScreenEdges(parallelLine, CANVAS_WIDTH, CANVAS_HEIGHT + 1000)
+            # append the point closest to the self.x, self.y
+            closestPoint = intersectionPoints[0]
+            for point in intersectionPoints:
+                if utils.distanceBetweenPoints((self.x, self.y), point) < utils.distanceBetweenPoints((self.x, self.y), closestPoint):
+                    closestPoint = point
+            laserEdges.append(closestPoint[0])
+            laserEdges.append(closestPoint[1])
+        return laserEdges
+
 
 sc = ScreenController()
 
@@ -972,7 +1045,6 @@ def mouseClicked():
 
     
 def keyPressed():
-    global current_screen
     if key == CODED:
         if keyCode == UP:
             sc.game.mainCharacter.keyHandler[UP] = True
@@ -991,8 +1063,8 @@ def keyPressed():
     if key == 'l':
         loop()
     if key == 'p':
-        if current_screen == GAME_SCREEN:
-            sceneController.switchScreen(START_SCREEN)
+        if sc.current_screen == GAME_SCREEN:
+            sc.switchScreen(START_SCREEN)
     if key == 'f':
         sc.game.mainCharacter.flyMode = not sc.game.mainCharacter.flyMode
         
