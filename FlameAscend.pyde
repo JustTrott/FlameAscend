@@ -147,24 +147,16 @@ class EndPage:
 
     def display(self):
         background(self.background_image)
-        # image(self.text_image, 320, 150, CANVAS_WIDTH // 2, CANVAS_HEIGHT // 4)
         if sc.end_result==0:
-            image(self.win_image, 320, 125, CANVAS_WIDTH // 2, CANVAS_HEIGHT // 6)
+            image(self.win_image, 320, 150, CANVAS_WIDTH // 2, CANVAS_HEIGHT // 4)
         elif sc.end_result==1:
-            image(self.lose_image, 320, 125, CANVAS_WIDTH // 2, CANVAS_HEIGHT // 6)
+            image(self.lose_image, 320, 150, CANVAS_WIDTH // 2, CANVAS_HEIGHT // 4)
         
         start_image_width = CANVAS_WIDTH // 5
-        start_image_height = CANVAS_HEIGHT // 20
+        start_image_height = CANVAS_HEIGHT // 15
         start_image_x = (CANVAS_WIDTH - start_image_width) // 2
-        start_image_y = 650  # Adjust the y-coordinate as needed
+        start_image_y = 450  # Adjust the y-coordinate as needed
         image(self.start_image, start_image_x, start_image_y, start_image_width, start_image_height)
-        
-        fill(0)
-        textSize(30)
-        textAlign(LEFT, TOP)
-        text("Current Score: " + str(sc.game.current_score), CANVAS_WIDTH // 2.5, 550)
-        textAlign(CENTER)
-        # text("Current Score:" + str(sc.game.current_score))
         
     def isReStartButtonClicked(self, mouseX, mouseY):
         return (
@@ -236,7 +228,6 @@ class Utils:
 
 utils = Utils()
 
-# A class that represents a bullet
 # A main class that controls the game
 class Game:
     def __init__(self, w, h, groundY):
@@ -853,7 +844,7 @@ class Enemy(Entity):
         self.shootInterval = int(random(50, 150))
         self.shootTimer = 0
         self.bulletCount=0
-        self.hp = 1000
+        self.hp = 1500
         
     def update(self, target):
         self.shootTimer += 1
