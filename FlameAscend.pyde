@@ -36,6 +36,8 @@ class ScreenController:
         self.start_page = StartPage()
         self.end_page = EndPage()
         self.current_screen = START_SCREEN
+        self.scores = []
+        self.end_result=0
 
     def display(self):
         if self.current_screen == START_SCREEN:
@@ -48,15 +50,14 @@ class ScreenController:
     def mouseClicked(self, mouseX, mouseY):
         if self.current_screen == START_SCREEN:
             if self.start_page.isStartButtonClicked(mouseX, mouseY):
-                self.game = Game(CANVAS_WIDTH, CANVAS_HEIGHT, CANVAS_HEIGHT)
-                self.switchScreen(GAME_SCREEN)
+                self.current_screen = GAME_SCREEN
             elif self.start_page.isContinueButtonClicked(mouseX, mouseY):
-                self.switchScreen(GAME_SCREEN)
+                self.current_screen = GAME_SCREEN
         elif self.current_screen == GAME_SCREEN:
             pass
         elif self.current_screen == END_SCREEN:
             if self.end_page.isReStartButtonClicked(mouseX, mouseY):
-                self.game = Game(CANVAS_WIDTH, CANVAS_HEIGHT, CANVAS_HEIGHT)
+                self.game = Game(CANVAS_WIDTH, CANVAS_HEIGHT, CANVAS_HEIGHT - 100)
                 self.switchScreen(GAME_SCREEN)
 
     def update(self):
@@ -64,7 +65,7 @@ class ScreenController:
             pass
         elif self.current_screen == GAME_SCREEN:
             if self.game.isGameFinished:
-                self.switchScreen(END_SCREEN)
+                self.current_screen = END_SCREEN
             else:
                 self.game.update()
         elif self.current_screen == END_SCREEN:
@@ -132,24 +133,22 @@ class EndPage:
         self.background_image = loadImage(os.getcwd() + "/images/background.jpg")
         self.text_image = loadImage(os.getcwd() + "/images/FLAME-ASCEND.png")
         self.start_image = loadImage(os.getcwd() + "/images/Restart-Game.png")
+        self.win_image = loadImage(os.getcwd() + "/images/You-won.png")
+        self.lose_image = loadImage(os.getcwd() + "/images/You-lost.png")
 
     def display(self):
         background(self.background_image)
-        image(self.text_image, 320, 150, CANVAS_WIDTH // 2, CANVAS_HEIGHT // 4)
-        
+        if sc.end_result==0:
+            image(self.win_image, 320, 125, CANVAS_WIDTH // 2, CANVAS_HEIGHT // 6)
+        elif sc.end_result==1:
+            image(self.lose_image, 320, 125, CANVAS_WIDTH // 2, CANVAS_HEIGHT // 6)
         
         start_image_width = CANVAS_WIDTH // 5
-        start_image_height = CANVAS_HEIGHT // 15
+        start_image_height = CANVAS_HEIGHT // 20
         start_image_x = (CANVAS_WIDTH - start_image_width) // 2
-        start_image_y = 450  # Adjust the y-coordinate as needed
+        start_image_y = 650  
         image(self.start_image, start_image_x, start_image_y, start_image_width, start_image_height)
         
-        fill(0)
-        textSize(30)
-        textAlign(LEFT, TOP)
-        text("Current Score: " + str(sc.game.current_score), CANVAS_WIDTH // 2.5, 550)
-        textAlign(CENTER)
-        # text("Current Score:" + str(sc.game.current_score))
         
     def isReStartButtonClicked(self, mouseX, mouseY):
         return (
@@ -183,40 +182,6 @@ class Utils:
                 return True
         return False
 
-    def isLineSegmentsIntersect(self, segmentX1, segmentY1, segmentX2, segmentY2, segmentX3, segmentY3, segmentX4, segmentY4):
-        # math reference: https://stackoverflow.com/questions/563198/how-do-you-detect-where-two-line-segments-intersect
-        # Return true if line segments AB and CD intersect
-        def ccw(A, B, C):
-            return (C[1] - A[1]) * (B[0] - A[0]) > (B[1] - A[1]) * (C[0] - A[0])
-        
-        return ccw((segmentX1, segmentY1), (segmentX3, segmentY3), (segmentX4, segmentY4)) != ccw((segmentX2, segmentY2), (segmentX3, segmentY3), (segmentX4, segmentY4)) and ccw((segmentX1, segmentY1), (segmentX2, segmentY2), (segmentX3, segmentY3)) != ccw((segmentX1, segmentY1), (segmentX2, segmentY2), (segmentX4, segmentY4))
-        
-    def computeParallelLinesAtDistance(self, line, distance):
-        k, b = line
-        e = b + distance * (1 + k ** 2) ** 0.5
-        f = b - distance * (1 + k ** 2) ** 0.5
-        return [(k, e), (k, f)]
-
-    def computeLineIntersectionWithScreenEdges(self, line, canvasWidth, canvasHeight):
-        k, b = line
-        # y = kx + b
-        # x = (y - b) / k
-        # y = canvasHeight
-        # x = (canvasHeight - b) / k
-        # x = 0
-        # y = b
-        # x = canvasWidth
-        # y = k * canvasWidth + b
-        bottomIntersection = ((canvasHeight - b) / k, canvasHeight)
-        leftIntersection = (0, b)
-        rightIntersection = (canvasWidth, k * canvasWidth + b)
-        if k < 0:
-            return [bottomIntersection, leftIntersection]
-        else:
-            return [bottomIntersection, rightIntersection]
-
-    def distanceBetweenPoints(self, p1, p2):
-        return ((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2) ** (0.5)
 
 utils = Utils()
 
@@ -226,7 +191,6 @@ class Game:
         self.w = w
         self.h = h
         self.groundY = groundY
-        self.groundImage = loadImage(os.getcwd() + "/images/lava.png")
         self.fallAcceleration = FREE_FALL_ACCELERATION
         self.topPlatformY = groundY - 3 * LAYER_HEIGHT - PLATFORM_WIDTH * 0.5
         self.isGameFinished = False
@@ -267,25 +231,16 @@ class Game:
         
         self.start_time = millis() 
         self.current_score = 0
-
-    
-    
-    # def save_all_time_high_score(self):
-    #     with open('highscores.csv','a') as table:
-    #             w = csv.writer(table,lineterminator='\n')
-    #             w.writerow(["{}".format(self.player_name).upper(),self.score])
-    #             self.score_saved = True
-    
-    def update_scores(self):
-        self.current_score = int((millis() - self.start_time)/100)
         
-
+    def update_scores(self):
+        self.current_score = int((millis() - self.start_time)/1000)
+        
     def display_scores(self):
         fill(0)
         textSize(20)
         textAlign(LEFT, TOP)
         text("Current Score:" + str(self.current_score), 10, 10)
-
+        
 
         # scores_temp = []
         # scores = []
@@ -320,7 +275,6 @@ class Game:
         background(self.background)
         stroke(GROUND_STROKE_WIDTH)
         line(0, self.groundY + self.yOffset, self.w, self.groundY + self.yOffset)
-        image(self.groundImage, 0, self.groundY + self.yOffset, self.w, self.h - self.groundY - self.yOffset, 0, 0, self.w, int(self.h - self.groundY - self.yOffset))
         platformLayersToDisplay = self.platformLayers if self.isLowestLayerVisible else self.platformLayers[1:]
         for platforms in platformLayersToDisplay:
             for platform in platforms:
@@ -333,15 +287,14 @@ class Game:
             shieldPowerUp.display(self.yOffset)
         for shootingPowerUp in self.shootingPowerUps:
             shootingPowerUp.display(self.yOffset)
-
             
     def update(self):
         self.update_scores()
-
+        
         # Display scores
         self.display_scores()
-
-        self.groundY -= 0.5
+        # future rising lava
+        # self.groundY -= 1
         mc = self.mainCharacter
         self.yOffset = self.startY - mc.y
         currentGroundY = self.getHighestPlatformY(mc)
@@ -370,7 +323,7 @@ class Game:
                 self.flickerCount = 0
                 self.changingFrame = None
                 # self.yOffset += LAYER_HEIGHT
-                self.groundY = self.topPlatformY + 7 * LAYER_HEIGHT
+                self.groundY -= LAYER_HEIGHT
                 # self.mainCharacter.y += LAYER_HEIGHT
                 newPressurePlatform = self.getRandomPlatform()
                 while isinstance(newPressurePlatform, JumpPlatform) or isinstance(newPressurePlatform, PressurePlatform):
@@ -383,12 +336,15 @@ class Game:
                         if platforms[i] == newPressurePlatform:
                             platforms[i] = PressurePlatform(platforms[i].x, platforms[i].y, platforms[i].w, platforms[i].h, "platform.png")
                 self.bomb = self.generateBomb()
-                self.score(100)
+                self.enemy.score(100)
         self.bomb.update()
         mc.update()
         self.cleanUp()
 
+
     def detectCollisions(self):
+        
+        global current_screen  # Declare current_screen as global
         mc = self.mainCharacter
         ec= self.enemy #Enemy Character
         currentPlatforms = self.getCurrentPlatforms(mc)
@@ -401,6 +357,9 @@ class Game:
                 self.gameOver.rewind()
                 self.bgMusic.pause()
                 self.isGameFinished = True
+                sc.scores.append(self.current_score)
+                sc.end_result =1           
+
                 return
 
         if self.bomb.grabbedBy == mc:
@@ -417,6 +376,7 @@ class Game:
         if mc.isCollidingGround(self.groundY):
             print("Collision of " + str(mc) + " and ground")
             self.isGameFinished = True
+            sc.end_result=1
             self.playerDeath.play()
             delay(400)
             self.gameOver.play()
@@ -424,20 +384,6 @@ class Game:
             self.bgMusic.pause()
             return
 
-        if not mc.isShieldUp:
-            for laser in self.enemy.lasers:
-                if not laser.isShooting:
-                    continue
-                # construct two line segments from laser.edges
-                segment1X1, segment1Y1, segment1X2, segment1Y2 = laser.edges[0], laser.edges[1], laser.edges[6], laser.edges[7]
-                segment2X1, segment2Y1, segment2X2, segment2Y2 = laser.edges[2], laser.edges[3], laser.edges[4], laser.edges[5]
-                if self.isCollidingRectangleLine(mc, (segment1X1, segment1Y1, segment1X2, segment1Y2)) or self.isCollidingRectangleLine(mc, (segment2X1, segment2Y1, segment2X2, segment2Y2)):
-                    print("Collision of " + str(mc) + " and " + str(laser))
-                    self.gameOver.play()
-                    self.gameOver.rewind()
-                    self.isGameFinished = True
-                    return
-            
         for shieldPowerUp in self.shieldPowerUps:
             if self.isCollidingRectangleCircle(mc, shieldPowerUp):
                 self.shieldPowerUps.remove(shieldPowerUp)
@@ -456,8 +402,11 @@ class Game:
             if self.isCollidingRectangleCircle(ec, bullet):
                 self.enemyDamage.play()
                 self.enemyDamage.rewind()
-                self.score(10)
+                ec.score(10)
                 self.mainCharacter.bullets.remove(bullet)
+            
+        # if self.isCollidingRectangles(mc, shieldPowerUp):
+        #     shieldPowerUp.followPlayer(mc)
             
         if not mc.isShieldUp:
             for laser in self.enemy.lasers:
@@ -466,6 +415,8 @@ class Game:
                     self.gameOver.play()
                     self.gameOver.rewind()
                     self.isGameFinished = True
+                    sc.scores.append(self.current_score)
+                    sc.end_result=1
                     return
             
         for platform in currentPlatforms:
@@ -882,9 +833,12 @@ class Enemy(Entity):
         elif 3 < self.hp < 500:
             self.lasers.append(self.generateLaser(targetX, targetY, 15))
             self.shootInterval = randint(250, 300)
+            
         elif self.hp<=0:
-            game.enemyDeath.play()
-            print("You win")
+            sc.game.isGameFinished= True
+            sc.game.enemyDeath.play()
+            sc.end_result =0
+            sc.scores.append(sc.game.current_score)
             
     def generateBullet(self, targetX, targetY, w, h):
         dx = targetX - (self.x + self.w / 2)
