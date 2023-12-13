@@ -23,6 +23,12 @@ START_SEEDS = ["NNNNNNNNNNNJ", "NNNJNNNNJNNN", "GJNNGGGGNNJG", "GGGJNNNNJGGG"]
 
 import os
 from random import randint, choice
+import csv
+
+
+add_library('minim')
+player=Minim(this)
+add_library('sound')
 
 class ScreenController:
     def __init__(self):
@@ -137,6 +143,13 @@ class EndPage:
         start_image_y = 450  # Adjust the y-coordinate as needed
         image(self.start_image, start_image_x, start_image_y, start_image_width, start_image_height)
         
+        fill(0)
+        textSize(30)
+        textAlign(LEFT, TOP)
+        text("Current Score: " + str(sc.game.current_score), CANVAS_WIDTH // 2.5, 550)
+        textAlign(CENTER)
+        # text("Current Score:" + str(sc.game.current_score))
+        
     def isReStartButtonClicked(self, mouseX, mouseY):
         return (
             self.restart_button_x < mouseX < self.restart_button_x + self.button_width
@@ -197,13 +210,75 @@ class Game:
         self.isLowestLayerVisible = True
         self.yOffset = 0
         self.background = loadImage(os.getcwd() + "/images/background.jpg")
-        # self.start_page = StartPage()
-        # self.end_page = EndPage()
+        self.bgMusic= player.loadFile(os.getcwd()+ "/sounds/background.mp3")
+        self.enemyDamage= player.loadFile(os.getcwd()+ "/sounds/enemy_damage.mp3")
+        self.enemyDeath= player.loadFile(os.getcwd()+ "/sounds/enemy_death.mp3")
+        self.fireBall= player.loadFile(os.getcwd()+ "/sounds/fireball.mp3")
+        self.laser= player.loadFile(os.getcwd()+ "/sounds/laser.mp3")
+        self.monster1= player.loadFile(os.getcwd()+ "/sounds/monster1.mp3")
+        self.playerShoot= player.loadFile(os.getcwd()+ "/sounds/player_shoot.mp3")
+        self.gameOver= player.loadFile(os.getcwd()+ "/sounds/gameover.MP3")
+        self.playerDeath= player.loadFile(os.getcwd()+ "/sounds/player_death.mp3")
+        
+        
+    
+        self.bgMusic.loop()
+        
 
         self.shieldPowerUps = []
         self.shootingPowerUps = []
         # self.shootingPowerUps.append(PowerUp(self.platformLayers[1][0], 32, 32))
         
+        self.start_time = millis() 
+        self.current_score = 0
+
+    
+    
+    # def save_all_time_high_score(self):
+    #     with open('highscores.csv','a') as table:
+    #             w = csv.writer(table,lineterminator='\n')
+    #             w.writerow(["{}".format(self.player_name).upper(),self.score])
+    #             self.score_saved = True
+    
+    def update_scores(self):
+        self.current_score = int((millis() - self.start_time)/100)
+        
+
+    def display_scores(self):
+        fill(0)
+        textSize(20)
+        textAlign(LEFT, TOP)
+        text("Current Score:" + str(self.current_score), 10, 10)
+
+
+        # scores_temp = []
+        # scores = []
+        # file = open('highscores.csv','r')
+        # for line in file:
+        #     line_list = line.strip().split(",")
+        #     if line_list[0] == "":
+        #         line_list[0] = "-"
+        #     scores_temp.append([line_list[0],int(line_list[1])])
+        # file.close()
+        # scores_temp.sort()
+        
+        # invalid = []
+        # for i in range(len(scores_temp)-1):
+        #     if scores_temp[i][0] == scores_temp[i+1][0]:
+        #         invalid.append(i)
+        # invalid.sort(reverse=True)
+        # for index in invalid:
+        #     del scores_temp[index]
+            
+        # for line in scores_temp:
+        #     scores.append([line[1],line[0]])
+        # scores.sort(reverse=True)
+            
+            
+        # textAlign(RIGHT, TOP)
+        # text("All-Time High Score:" + str(score[1]), CANVAS_WIDTH - 10, 10)
+        
+                
     def display(self):
         GROUND_STROKE_WIDTH = 0
         background(self.background)
@@ -222,19 +297,11 @@ class Game:
         for shootingPowerUp in self.shootingPowerUps:
             shootingPowerUp.display(self.yOffset)
             
-    # def mouseClicked(self):
-    #     global current_screen  # Declare current_screen as global
-    #     if current_screen == START_SCREEN:
-    #         if self.start_page.isStartButtonClicked(mouseX, mouseY):
-    #             current_screen = GAME_SCREEN  # Switch to the game screen
-    #         elif self.start_page.isContinueButtonClicked(mouseX, mouseY):
-    #             pass
-                
-    #     if current_screen == END_SCREEN:
-    #         if self.end_page.isReStartButtonClicked(mouseX, mouseY):
-    #             current_screen = GAME_SCREEN  # Switch to the game screen
-            
     def update(self):
+        self.update_scores()
+
+        # Display scores
+        self.display_scores()
         # future rising lava
         # self.groundY -= 1
         mc = self.mainCharacter
@@ -294,6 +361,9 @@ class Game:
             self.applyMovement(bullet) 
             if not mc.isShieldUp and self.isCollidingRectangleCircle(mc, bullet):
                 print("Collision of " + str(mc) + " and " + str(bullet))
+                self.gameOver.play()
+                self.gameOver.rewind()
+                self.bgMusic.pause()
                 self.isGameFinished = True
                 return
 
@@ -311,12 +381,19 @@ class Game:
         if mc.isCollidingGround(self.groundY):
             print("Collision of " + str(mc) + " and ground")
             self.isGameFinished = True
+            self.playerDeath.play()
+            delay(400)
+            self.gameOver.play()
+            self.gameOver.rewind()
+            self.bgMusic.pause()
             return
 
         for shieldPowerUp in self.shieldPowerUps:
             if self.isCollidingRectangleCircle(mc, shieldPowerUp):
                 self.shieldPowerUps.remove(shieldPowerUp)
                 mc.isShieldUp = True
+                self.monster1.play()
+                self.monster1.rewind()
                 break
         
         for shootingPowerUp in self.shootingPowerUps:
@@ -327,6 +404,8 @@ class Game:
         
         for bullet in self.mainCharacter.bullets:
             if self.isCollidingRectangleCircle(ec, bullet):
+                self.enemyDamage.play()
+                self.enemyDamage.rewind()
                 ec.score(10)
                 self.mainCharacter.bullets.remove(bullet)
             
@@ -337,6 +416,8 @@ class Game:
             for laser in self.enemy.lasers:
                 if self.isCollidingRectangleCircle(mc, laser):
                     print("Collision of" + str(mc) + " and " + str(laser))
+                    self.gameOver.play()
+                    self.gameOver.rewind()
                     self.isGameFinished = True
                     return
             
@@ -622,6 +703,9 @@ class MainCharacter(Entity):
         
     def startShooting(self):
         self.isShooting = True
+        sc.game.playerShoot.play()
+        sc.game.playerShoot.rewind()
+        
         self.bulletsRemaining = 20
 
     def stopShooting(self):
@@ -750,6 +834,8 @@ class Enemy(Entity):
         if 700< self.hp <= 900:
             for i in range(numBulletsPerShot):
                 self.bullets.append(self.generateBullet(targetX, targetY, 32, 32))  # arbitrary values for now
+                sc.game.fireBall.play()
+                sc.game.fireBall.rewind()
                 # self.bulletTypes= int(random(0,3))
                 # self.hp -= 1        
                 
@@ -757,6 +843,8 @@ class Enemy(Entity):
             numBulletsPerShot = 1
             for i in range(numBulletsPerShot):
                 self.bullets.append(self.generateBullet(targetX, targetY, 48, 48)) # arbitrary values for now
+                sc.game.fireBall.play()
+                sc.game.fireBall.rewind()
                 # self.bulletTypes= int(random(0,3))
                 # self.hp -= 1
                 
@@ -764,11 +852,20 @@ class Enemy(Entity):
             numBulletsPerShot = 5
             for i in range(numBulletsPerShot):
                 self.bullets.append(self.generateBullet(targetX, targetY, 64, 64)) # arbitrary values for now
+                sc.game.fireBall.play()
+                sc.game.fireBall.rewind()
                 # self.bulletTypes= int(random(0,3))
                 # self.hp -= 1
                 self.lasers.append(self.generateLaser(targetX, targetY, 64, 64))
+                
+        elif self.hp==0:
+            game.enemyDeath.play()
+            print("You win")
+            
         for laser in self.lasers:
             laser.update()
+            sc.game.laser.play()
+            sc.game.laser.rewind()
             
     def generateBullet(self, targetX, targetY, w, h):
         dx = targetX - (self.x + self.w / 2)
