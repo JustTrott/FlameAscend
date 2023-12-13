@@ -64,6 +64,8 @@ class ScreenController:
             pass
         elif self.current_screen == GAME_SCREEN:
             if self.game.isGameFinished:
+                self.game.display()
+                delay(1000)
                 self.switchScreen(END_SCREEN)
             else:
                 self.game.update()
@@ -316,11 +318,8 @@ class Game:
         
                 
     def display(self):
-        GROUND_STROKE_WIDTH = 0
         background(self.background)
-        stroke(GROUND_STROKE_WIDTH)
-        line(0, self.groundY + self.yOffset, self.w, self.groundY + self.yOffset)
-        image(self.groundImage, 0, self.groundY + self.yOffset, self.w, self.h - self.groundY - self.yOffset, 0, 0, self.w, int(self.h - self.groundY - self.yOffset))
+        
         platformLayersToDisplay = self.platformLayers if self.isLowestLayerVisible else self.platformLayers[1:]
         for platforms in platformLayersToDisplay:
             for platform in platforms:
@@ -333,6 +332,10 @@ class Game:
             shieldPowerUp.display(self.yOffset)
         for shootingPowerUp in self.shootingPowerUps:
             shootingPowerUp.display(self.yOffset)
+        fill(255, 165, 0)
+        stroke(255, 165, 0)
+        rect(0, self.groundY + self.yOffset + 200, self.w, self.h - self.groundY - self.yOffset - 200)
+        image(self.groundImage, 0, self.groundY + self.yOffset)
 
             
     def update(self):
@@ -414,7 +417,7 @@ class Game:
         if self.bomb.grabbedBy != mc and not isinstance(self.bomb.grabbedBy, PressurePlatform) and self.isCollidingRectangles(mc, self.bomb):
             self.bomb.grab(mc)
                                                                                     
-        if mc.isCollidingGround(self.groundY):
+        if mc.isCollidingGround(self.groundY + mc.h):
             print("Collision of " + str(mc) + " and ground")
             self.isGameFinished = True
             self.playerDeath.play()
@@ -474,7 +477,7 @@ class Game:
                 break
                     
     def getHighestPlatformY(self, entity):
-        minPlatformY = self.groundY
+        minPlatformY = self.groundY + entity.h
         for platforms in self.platformLayers:
             for platform in platforms:
                 isEntityInPlatformX = (platform.x <= entity.x <= platform.x + platform.w) or (platform.x <= entity.x + entity.w <= platform.x + platform.w)
@@ -592,7 +595,7 @@ class Game:
             if random(0, 1) < 0.5:
                 self.shieldPowerUps.append(PowerUp(choice(newLayer), 32, 32, "shield-inactive.png"))
             else:
-                self.shootingPowerUps.append(PowerUp(choice(newLayer), 32, 32))
+                self.shootingPowerUps.append(PowerUp(choice(newLayer), 32, 32, "mc_bullet.png"))
         
     def destroyLowestLayer(self):
         for powerUp in self.shieldPowerUps:
@@ -772,10 +775,11 @@ class MainCharacter(Entity):
                 Bullet(
                     self.x + self.w / 2,
                     self.y + self.h / 2,
-                    10,
-                    10,
+                    12,
+                    12,
                     10,
                     0,
+                    "mc_bullet.png"
                 )
             )
             self.bulletsRemaining -= 1
@@ -888,11 +892,11 @@ class Enemy(Entity):
             
     def generateBullet(self, targetX, targetY, w, h):
         dx = targetX - (self.x + self.w / 2)
-        dy = targetY - (self.y + self.h)
+        dy = targetY - (self.y + self.h / 2)
         angle = atan2(dy, dx)
         return Bullet(
             self.x + self.w / 2,
-            self.y + self.h,
+            self.y + self.h / 2,
             w,
             h,
             5,
@@ -903,7 +907,7 @@ class Enemy(Entity):
     def generateLaser(self, targetX, targetY, w):
         return Laser(
             self.x + self.w // 2,
-            self.y + self.h,
+            self.y + self.h / 3,
             targetX,
             targetY,
             w,
@@ -992,8 +996,6 @@ class Laser():
                 fill(255)
                 stroke(255)
             self.displayLaser(yOffset)
-            self.laser.play()
-            self.laser.rewind()
         
     def displayLaserLine(self, yOffset):
         intersectionPoints = utils.computeLineIntersectionWithScreenEdges(self.line, CANVAS_WIDTH, CANVAS_HEIGHT)
