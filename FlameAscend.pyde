@@ -24,7 +24,7 @@ START_SEEDS = ["NNNNNNNNNNNJ", "NNNJNNNNJNNN", "GJNNGGGGNNJG", "GGGJNNNNJGGG"]
 import os
 from random import randint, choice
 
-class SceneController:
+class ScreenController:
     def __init__(self):
         self.game = Game(CANVAS_WIDTH, CANVAS_HEIGHT, CANVAS_HEIGHT)
         self.start_page = StartPage()
@@ -859,7 +859,7 @@ class Laser(Entity):
         line(self.x, self.y + yOffset, self.x + cos(self.angle) * 1000, self.y + sin(self.angle) * 1000)
         
 
-sc = SceneController()
+sc = ScreenController()
 
 def setup():
     frameRate(60)
